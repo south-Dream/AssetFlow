@@ -1,0 +1,5 @@
+.venv/
+models/*.onnx
+temp/
+__pycache__/
+downloads/

@@ -1,0 +1,4 @@
+/* Open Canvas menus clear sibling panel navigation; application navigation
+   clears all panel menus while remaining below modal and tooltip layers. */
+.main-menu.navigation-container:has(.navigation-node[data-menu-open="true"]) { z-index: 80; }
+.main-menu.navigation-container[data-navigation-container="system.top"] { z-index: 120; }

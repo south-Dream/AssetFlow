@@ -1,0 +1,24 @@
+const assert = require('node:assert/strict');
+const { buildSync } = require('esbuild');
+const vm = require('node:vm');
+const result = buildSync({ entryPoints: ['scripts/src/renderer/workspace/canvasSaveHost.ts'], bundle: true, platform: 'node', format: 'cjs', write: false });
+const context = { module: { exports: {} }, exports: {}, ArrayBuffer, Error, Map };
+context.exports = context.module.exports;
+vm.runInNewContext(result.outputFiles[0].text, context);
+(async () => {
+  const { registerCanvasSaver, saveCanvas, validateCanvasSaveResult } = context.module.exports;
+  await assert.rejects(saveCanvas('missing'), /尚未就绪|未注册/);
+  const bytes = new TextEncoder().encode('saved').buffer;
+  const unregister = registerCanvasSaver('a', async () => ({ data: bytes, name: 'file.txt' }));
+  assert.equal((await saveCanvas('a')).data, bytes);
+  const replace = registerCanvasSaver('a', async () => ({ data: bytes }));
+  unregister();
+  assert.equal((await saveCanvas('a')).data, bytes);
+  replace();
+  await assert.rejects(saveCanvas('a'), /尚未就绪|未注册/);
+  assert.throws(() => validateCanvasSaveResult({ data: 'invalid' }), /ArrayBuffer/);
+  assert.throws(() => validateCanvasSaveResult({ data: bytes, name: 3 }), /名称/);
+  assert.throws(() => validateCanvasSaveResult({ data: new ArrayBuffer(128 * 1024 * 1024 + 1) }), /128 MB/);
+  for (const name of ['../bad', 'bad:stream', 'bad.', 'bad ']) assert.throws(() => validateCanvasSaveResult({ data: bytes, name }), /名称/);
+  console.log('Canvas save host tests passed');
+})().catch(error => { console.error(error); process.exitCode = 1; });

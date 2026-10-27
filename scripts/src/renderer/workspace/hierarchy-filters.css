@@ -1,0 +1,38 @@
+.hierarchy-tree .hierarchy-filter-bar {
+  gap: 6px;
+  min-height: 36px;
+  flex-basis: 36px;
+  overflow: visible;
+}
+.hierarchy-resource-count { flex-shrink: 0; white-space: nowrap; }
+.hierarchy-tree .hierarchy-search {
+  min-width: 0;
+  width: 0;
+  flex: 1;
+  height: 24px;
+  padding: 3px 6px;
+  font-size: 11px;
+}
+.hierarchy-format-filter { position: relative; flex-shrink: 0; }
+.hierarchy-format-filter summary { cursor: pointer; white-space: nowrap; padding: 4px; }
+.hierarchy-format-options {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  min-width: 120px;
+  max-height: 260px;
+  overflow: auto;
+  padding: 8px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--surface);
+  box-shadow: 0 5px 18px #0003;
+}
+.hierarchy-format-options label { display: flex; align-items: center; gap: 6px; cursor: pointer; }
+.hierarchy-format-options input { margin: 0; }
+.hierarchy-tree .hierarchy-empty-list { display: grid; place-items: center; }
+.hierarchy-tree .hierarchy-empty-message { margin: 0; padding: 16px; font-size: 12px; pointer-events: none; }

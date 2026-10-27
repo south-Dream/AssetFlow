@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "sdkVersion": 1,
+  "id": "video-player",
+  "name": "视频预览",
+  "desc": "资源接口示例：播放器及视频、音频双轨预览",
+  "version": "1.0.0",
+  "entry": "./index.js",
+  "resources": [
+    {
+      "extensions": ["mp4", "webm", "mov"],
+      "handler": "video-player.open",
+      "mode": "replace",
+      "maxCount": 1
+    }
+  ]
+}

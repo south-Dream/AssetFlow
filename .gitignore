@@ -1,0 +1,58 @@
+# Dependencies
+node_modules/
+
+# Generated builds (scripts/build/ contains source and must stay tracked)
+/dist/
+/out/
+/release/
+*.tsbuildinfo
+
+# Local tooling, test output and runtime data
+.cache/
+.test-build/
+.tools/
+coverage/
+/working-assets/
+/exports/
+/tmp/
+/temp/
+*.log
+
+# Python environments and caches
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Downloaded model weights (keep model configs and install instructions)
+*.onnx
+*.pt
+*.pth
+*.ckpt
+*.safetensors
+*.tflite
+.u2net/
+
+# Local credentials and environment overrides
+.env
+.env.*
+!.env.example
+!.env.*.example
+/.npmrc
+*.pem
+*.key
+
+# Editor and operating system files
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+Desktop.ini
+*.swp
+*.swo

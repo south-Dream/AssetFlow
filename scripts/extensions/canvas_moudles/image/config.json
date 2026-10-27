@@ -1,0 +1,81 @@
+{
+  "schemaVersion": 1,
+  "sdkVersion": 1,
+  "id": "image",
+  "name": "img",
+  "desc": "内置图片资产编辑器",
+  "version": "1.0.0",
+  "resources": [
+    {
+      "extensions": [
+        "png",
+        "jpg",
+        "jpeg",
+        "webp"
+      ],
+      "handler": "image.open",
+      "mode": "replace",
+      "maxCount": 1
+    }
+  ],
+  "tools": [
+    {
+      "id": "image.crop",
+      "name": "裁剪",
+      "command": "image.crop",
+      "kind": "tool",
+      "icon": "./icons/crop.svg",
+      "desc": "拖动选区与边界手柄，裁剪图片内容。",
+      "shortcut": "C"
+    },
+    {
+      "id": "image.resize",
+      "name": "调整尺寸",
+      "command": "image.resize",
+      "kind": "tool",
+      "icon": "./icons/resize.svg",
+      "desc": "调整宽高、比例和缩放方式。",
+      "shortcut": "R"
+    },
+    {
+      "id": "image.canvas",
+      "name": "画布补边",
+      "command": "image.canvas",
+      "kind": "tool",
+      "icon": "./icons/canvas.svg",
+      "desc": "扩展画布并设置对齐、透明或背景填充。"
+    },
+    {
+      "id": "image.rotate",
+      "name": "旋转翻转",
+      "command": "image.rotate",
+      "kind": "tool",
+      "icon": "./icons/rotate.svg",
+      "desc": "旋转图片或进行水平、垂直翻转。"
+    },
+    {
+      "id": "image.trim",
+      "name": "透明裁剪",
+      "command": "image.trim",
+      "kind": "tool",
+      "icon": "./icons/trim.svg",
+      "desc": "按 Alpha 阈值去除透明边缘并保留安全边距。"
+    },
+    {
+      "id": "image.remove-background",
+      "name": "移除背景",
+      "command": "image.remove-background",
+      "kind": "tool",
+      "icon": "./icons/remove-background.svg",
+      "desc": "使用本地 rembg 模型移除背景，需要配置运行环境。"
+    }
+  ],
+  "menus": [],
+  "settings": [],
+  "capabilities": [
+    {
+      "id": "image.rembg",
+      "config": "./modules/background-removal/rembg/config.json"
+    }
+  ]
+}

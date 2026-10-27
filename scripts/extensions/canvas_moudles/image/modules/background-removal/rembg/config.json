@@ -1,0 +1,16 @@
+{
+  "apiVersion": 1,
+  "adapter": "rembg.python",
+  "capability": "image.remove-background",
+  "capabilityVersion": 1,
+  "models": [
+    {
+      "id": "rembg.u2netp",
+      "name": "U2Net lightweight",
+      "session": "u2netp",
+      "file": "u2netp.onnx",
+      "checksum": "md5:8e83ca70e441ab06c318d82300c84806",
+      "download": "https://github.com/danielgatis/rembg/releases/download/v0.0.0/u2netp.onnx"
+    }
+  ]
+}

@@ -1,0 +1,27 @@
+.export-selection-dialog { width: min(540px, calc(100vw - 48px)); max-height: calc(100vh - 48px); overflow: auto; display: flex; flex-direction: column; gap: 14px; }
+.export-selection-dialog h3 { margin: 0; }
+.export-name-field { display: flex; align-items: center; gap: 12px; font-size: 12px; }
+.export-name-field input, .export-name-field select { flex: 1; min-width: 0; }
+.export-selection-toolbar, .export-selection-actions { display: flex; align-items: center; gap: 8px; font-size: 12px; }
+.export-selection-toolbar > span, .export-selection-actions > span { flex: 1; }
+.export-selection-tree { min-height: 140px; max-height: 360px; overflow: auto; border: 1px solid var(--line); border-radius: 6px; padding: 5px 0; }
+.export-selection-tree > p { text-align: center; padding: 40px 12px; }
+.export-selection-row { display: flex; align-items: center; gap: 7px; min-height: 28px; padding-right: 12px; font-size: 12px; cursor: pointer; }
+.export-selection-row:hover { background: var(--hover); }
+.export-selection-row input { flex-shrink: 0; margin: 0; }
+.export-selection-row span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.export-selection-error { color: #f08b8b; margin: 0; font-size: 12px; }
+.export-image-settings { font-size: 12px; }
+.export-image-settings summary { cursor: pointer; }
+.export-image-settings-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px 14px; padding-top: 12px; }
+.export-image-settings-grid label { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
+.export-image-settings-grid input, .export-image-settings-grid select { width: 100%; min-width: 0; }
+.export-image-settings > p { margin-bottom: 0; }
+
+/* Override generic settings labels within the package checklist and output grid. */
+.export-selection-dialog .export-selection-row { justify-content: flex-start; }
+.export-selection-dialog .export-selection-row input[type="checkbox"] { width: 14px; height: 14px; flex: 0 0 14px; }
+.export-selection-dialog .export-selection-row span { min-width: 0; text-align: left; }
+.export-selection-dialog .export-image-settings-grid label { align-items: stretch; justify-content: flex-start; text-align: left; }
+.export-selection-dialog .export-image-settings-grid input,
+.export-selection-dialog .export-image-settings-grid select { width: 100%; }

@@ -1,0 +1,44 @@
+[
+  {
+    "id": "system.modules",
+    "name": "包管理器",
+    "command": "system.modules.canvas"
+  },
+  {
+    "id": "system.file",
+    "name": "文件",
+    "children": [
+      {
+        "id": "system.file.savePanel",
+        "name": "保存    Ctrl+S",
+        "command": "system.file.savePanel"
+      },
+      {
+        "id": "system.file.import",
+        "name": "导入…",
+        "command": "system.file.import"
+      },
+      {
+        "id": "system.file.export",
+        "name": "导出…",
+        "command": "system.file.exportAll"
+      }
+    ]
+  },
+  {
+    "id": "system.edit",
+    "name": "编辑",
+    "children": [
+      {
+        "id": "system.edit.newCanvas",
+        "name": "新建画布",
+        "children": []
+      },
+      {
+        "id": "system.settings",
+        "name": "设置…",
+        "command": "system.settings.open"
+      }
+    ]
+  }
+]

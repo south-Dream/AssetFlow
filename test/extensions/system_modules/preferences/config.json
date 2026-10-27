@@ -1,0 +1,109 @@
+{
+  "id": "preferences",
+  "name": "偏好示例",
+  "desc": "演示系统导航、共享设置和自定义面板",
+  "schemaVersion": 1,
+  "sdkVersion": 1,
+  "entry": "scripts/index.js",
+  "menus": [
+    {
+      "id": "preferences.direct",
+      "name": "偏好",
+      "action": {
+        "type": "openPanel",
+        "panel": "preferences.general",
+        "host": "dialog"
+      }
+    },
+    {
+      "id": "preferences.tools",
+      "name": "扩展示例",
+      "children": [
+        {
+          "id": "preferences.execute",
+          "name": "执行示例操作",
+          "command": "preferences.notify"
+        },
+        {
+          "id": "preferences.custom",
+          "name": "自定义面板",
+          "action": {
+            "type": "openPanel",
+            "panel": "preferences.customPanel",
+            "host": "dock"
+          }
+        },
+        {
+          "id": "preferences.settings",
+          "name": "在设置中打开",
+          "action": {
+            "type": "openPanel",
+            "panel": "preferences.general",
+            "host": "settings"
+          }
+        }
+      ]
+    },
+    {
+      "id": "preferences.fileExtras",
+      "name": "扩展选项",
+      "children": [
+        {
+          "id": "preferences.group",
+          "name": "偏好设置",
+          "children": [
+            {
+              "id": "preferences.fileOpen",
+              "name": "打开偏好…",
+              "action": {
+                "type": "openPanel",
+                "panel": "preferences.general"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "panels": [
+    {
+      "id": "preferences.general",
+      "name": "偏好",
+      "renderer": "form",
+      "fields": [
+        {
+          "id": "preferences.autoPreview",
+          "name": "示例自动预览开关",
+          "type": "boolean",
+          "default": true,
+          "order": 10
+        },
+        {
+          "id": "preferences.author",
+          "name": "示例作者",
+          "type": "text",
+          "default": "",
+          "order": 20
+        }
+      ]
+    },
+    {
+      "id": "preferences.customPanel",
+      "name": "自定义面板示例",
+      "renderer": "custom",
+      "fields": []
+    }
+  ],
+  "settingsPages": [
+    {
+      "id": "preferences.generalSettings",
+      "name": "偏好",
+      "panel": "preferences.general"
+    },
+    {
+      "id": "preferences.customSettings",
+      "name": "自定义面板",
+      "panel": "preferences.customPanel"
+    }
+  ]
+}

@@ -1,0 +1,44 @@
+{
+  "name": "assetflow",
+  "productName": "AssetFlow",
+  "version": "0.1.0",
+  "description": "Offline desktop image processing workbench",
+  "private": true,
+  "main": "dist/node/main/index.js",
+  "scripts": {
+    "package:local": "npm run build && node scripts/build/package-local.cjs",
+    "dev": "node scripts/build/dev.cjs",
+    "build": "npm run typecheck && node scripts/build/build.cjs && vite build",
+    "typecheck": "tsc --noEmit",
+    "test": "node scripts/tests/test.cjs",
+    "test:smoke": "npm run build && node scripts/tests/run-smoke.cjs",
+    "start": "electron .",
+    "package": "npm run package:local",
+    "make": "npm run build && node scripts/build/prepare-runtime.cjs && electron-forge make --platform=win32 --arch=x64"
+  },
+  "keywords": [],
+  "author": "AssetFlow",
+  "license": "UNLICENSED",
+  "dependencies": {
+    "archiver": "7.0.1",
+    "react": "19.0.0",
+    "react-dom": "19.0.0",
+    "sharp": "0.34.3"
+  },
+  "devDependencies": {
+    "@electron-forge/cli": "7.8.0",
+    "@electron-forge/maker-squirrel": "7.8.0",
+    "@electron-forge/plugin-auto-unpack-natives": "7.8.0",
+    "@types/archiver": "6.0.3",
+    "@types/node": "20.14.11",
+    "@types/react": "19.0.10",
+    "@types/react-dom": "19.0.4",
+    "electron": "35.0.2",
+    "esbuild": "0.21.5",
+    "typescript": "5.9.3",
+    "vite": "5.4.21"
+  },
+  "config": {
+    "forge": "./forge.config.cjs"
+  }
+}
