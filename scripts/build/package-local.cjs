@@ -75,7 +75,7 @@ async function main() {
           "unified-settings",
           "startup-system-extensions",
           "shared-additive-navigation",
-          "navigation-region-containers",
+          "single-row-system-first-navigation",
           "compact-package-manager",
           "flat-settings-pages",
           "extension-panel-hosts",

@@ -1,10 +1,13 @@
 import type { InspectorUI } from "./contracts";
+import { validateValues } from "./config";
 /** Treat Drawer output as data. Invalid custom fields must never crash the host. */
 export function validateInspectorUI(
   input: unknown
 ): asserts input is InspectorUI {
   let count = 0;
   const visit = (node: any, depth: number) => {
+    if (node?.role !== undefined && (node.kind !== "text" || !["status", "alert"].includes(node.role)))
+      throw Error("Invalid text role");
     if (
       !node ||
       typeof node !== "object" ||
@@ -14,7 +17,7 @@ export function validateInspectorUI(
     )
       throw Error("无效或超限的绘制描述");
     if (
-      !["text", "input", "slider", "button", "row", "column"].includes(
+      !["fields", "text", "input", "slider", "button", "row", "column"].includes(
         node.kind
       )
     )
@@ -44,6 +47,21 @@ export function validateInspectorUI(
           (!Number.isFinite(node.step) || node.step <= 0)))
     )
       throw Error("无效滑条参数");
+    if (node.kind === "fields") {
+      if (!Array.isArray(node.fields) || node.fields.length > 100) throw Error("Invalid fields");
+      const ids = new Set();
+      for (const field of node.fields) {
+        if (!field || typeof field.id !== "string" || ids.has(field.id) || typeof field.name !== "string" || field.renderer || field.command || !["text", "number", "boolean", "select", "color"].includes(field.type)) throw Error("Invalid built-in field");
+        ids.add(field.id);
+      }
+      // Validate schema/defaults, but keep invalid drafts editable so users can correct them.
+      validateValues(node.fields, {});
+      if (node.values && (typeof node.values !== "object" || Array.isArray(node.values))) throw Error("Invalid field values");
+      for (const field of node.fields) {
+        const value = node.values?.[field.id];
+        if (value !== undefined && (typeof value !== typeof field.default || (typeof value === "number" && !Number.isFinite(value)))) throw Error("Invalid field value type");
+      }
+    }
     if (["row", "column"].includes(node.kind)) {
       if (!Array.isArray(node.children) || node.children.length > 100)
         throw Error("无效绘制子项");

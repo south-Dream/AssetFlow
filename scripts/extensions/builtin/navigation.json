@@ -9,9 +9,9 @@
     "name": "文件",
     "children": [
       {
-        "id": "system.file.savePanel",
-        "name": "保存    Ctrl+S",
-        "command": "system.file.savePanel"
+        "id": "system.file.saveAll",
+        "name": "全部保存",
+        "command": "system.file.saveAll"
       },
       {
         "id": "system.file.import",

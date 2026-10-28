@@ -1,0 +1,175 @@
+{
+  "schemaVersion": 1,
+  "sdkVersion": 1,
+  "id": "atlas",
+  "name": "图集",
+  "desc": "图片自动排版、透明裁边与 PNG + JSON 图集导出",
+  "version": "1.0.0",
+  "resources": [
+    {
+      "extensions": [
+        "png",
+        "jpg",
+        "jpeg",
+        "webp"
+      ],
+      "handler": "atlas.open",
+      "mode": "append",
+      "maxCount": 100
+    }
+  ],
+  "tools": [
+    {
+      "id": "atlas.layout",
+      "name": "自动排版",
+      "command": "atlas.layout",
+      "kind": "tool",
+      "toolbar": true,
+      "icon": "./icons/layout.svg",
+      "desc": "调整紧凑或网格布局、图集尺寸、透明裁边和边缘扩展。",
+      "fields": [
+        {
+          "id": "atlas.layoutMode",
+          "name": "布局",
+          "type": "select",
+          "default": "紧凑打包",
+          "options": [
+            "紧凑打包",
+            "规则网格"
+          ]
+        },
+        {
+          "id": "atlas.sizeMode",
+          "name": "尺寸",
+          "type": "select",
+          "default": "自动尺寸",
+          "options": [
+            "自动尺寸",
+            "固定尺寸"
+          ]
+        },
+        {
+          "id": "atlas.width",
+          "name": "画布宽",
+          "type": "number",
+          "default": 1024,
+          "min": 1,
+          "max": 8192
+        },
+        {
+          "id": "atlas.height",
+          "name": "画布高",
+          "type": "number",
+          "default": 1024,
+          "min": 1,
+          "max": 8192
+        },
+        {
+          "id": "atlas.maxWidth",
+          "name": "最大宽",
+          "type": "number",
+          "default": 4096,
+          "min": 1,
+          "max": 8192
+        },
+        {
+          "id": "atlas.maxHeight",
+          "name": "最大高",
+          "type": "number",
+          "default": 4096,
+          "min": 1,
+          "max": 8192
+        },
+        {
+          "id": "atlas.padding",
+          "name": "图片间距",
+          "type": "number",
+          "default": 2,
+          "min": 0,
+          "max": 128
+        },
+        {
+          "id": "atlas.margin",
+          "name": "画布边距",
+          "type": "number",
+          "default": 0,
+          "min": 0,
+          "max": 128
+        },
+        {
+          "id": "atlas.extrusion",
+          "name": "边缘扩展",
+          "type": "number",
+          "default": 0,
+          "min": 0,
+          "max": 16
+        },
+        {
+          "id": "atlas.powerOfTwo",
+          "name": "宽高取 2 的幂",
+          "type": "boolean",
+          "default": false
+        },
+        {
+          "id": "atlas.trim",
+          "name": "裁掉透明边缘",
+          "type": "boolean",
+          "default": false
+        }
+      ]
+    },
+    {
+      "id": "atlas.remove",
+      "name": "从图集中移除",
+      "command": "atlas.remove",
+      "kind": "command",
+      "toolbar": false,
+      "icon": "./icons/remove.svg",
+      "desc": "移除画布中选中的图片。"
+    },
+    {
+      "id": "atlas.repack",
+      "name": "重新排版",
+      "command": "atlas.repack",
+      "kind": "command",
+      "toolbar": false,
+      "icon": "./icons/repack.svg",
+      "desc": "按已应用的参数重新生成图集布局。"
+    },
+    {
+      "id": "atlas.fit",
+      "name": "适应窗口",
+      "command": "atlas.fit",
+      "kind": "command",
+      "toolbar": false,
+      "icon": "./icons/fit.svg",
+      "desc": "缩放并居中显示完整图集。"
+    },
+    {
+      "id": "atlas.actualSize",
+      "name": "实际大小",
+      "command": "atlas.actualSize",
+      "kind": "command",
+      "toolbar": false,
+      "icon": "./icons/actualSize.svg",
+      "desc": "以 100% 比例居中显示图集。"
+    }
+  ],
+  "menus": [],
+  "settings": [],
+  "capabilities": [],
+  "bindings": {
+    "canvas": "Atlas",
+    "nodes": {
+      "atlas.layout": "atlas_layout",
+      "atlas.remove": "atlas_remove",
+      "atlas.repack": "atlas_repack",
+      "atlas.fit": "atlas_fit",
+      "atlas.actualSize": "atlas_actualSize"
+    }
+  },
+  "inspector": {
+    "canvas": [{ "id": "atlas.name", "name": "文件名", "type": "text", "default": "atlas" }],
+    "operations": {}
+  }
+}

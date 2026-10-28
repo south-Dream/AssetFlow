@@ -476,7 +476,7 @@ AssetFlow/
 │   └── config/           # 默认配置
 ├── presets/              # 内置处理预设
 ├── docs/                 # 设计文档
-├── scripts/tests/                # 自动化测试
+├── tests/                # 自动化测试
 └── package.json
 ```
 

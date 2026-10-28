@@ -10,8 +10,9 @@
     "dev": "node scripts/build/dev.cjs",
     "build": "npm run typecheck && node scripts/build/build.cjs && vite build",
     "typecheck": "tsc --noEmit",
-    "test": "node scripts/tests/test.cjs",
-    "test:smoke": "npm run build && node scripts/tests/run-smoke.cjs",
+    "test": "node tests/test.cjs",
+    "test:smoke": "npm run build && node tests/run-smoke.cjs",
+    "test:package": "powershell -NoProfile -ExecutionPolicy Bypass -File tests/packaged-smoke.ps1",
     "start": "electron .",
     "package": "npm run package:local",
     "make": "npm run build && node scripts/build/prepare-runtime.cjs && electron-forge make --platform=win32 --arch=x64"

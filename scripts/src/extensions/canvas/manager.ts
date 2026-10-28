@@ -16,16 +16,26 @@ export class CanvasModuleManager {
     CanvasModuleRecord,
     Record<string, unknown>
   >();
-  constructor(private store: string) {}
+  constructor(private store: string, private defaults: string[] = []) {}
   private init() {
     return (this.initialization ??= this.restore());
   }
   private async restore() {
     let stored: Stored[];
+    let legacy = false;
     try {
-      stored = JSON.parse(await fs.readFile(this.store, "utf8"));
+      const data = JSON.parse(await fs.readFile(this.store, "utf8"));
+      legacy = Array.isArray(data);
+      stored = legacy ? data : data?.version === 2 ? data.modules : undefined;
     } catch (e: any) {
-      if (e.code === "ENOENT") return;
+      if (e.code === "ENOENT") {
+        for (const file of this.defaults) {
+          try { const record = await this.read(file); this.records.set(record.config.id, record); }
+          catch (error) { if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error; }
+        }
+        await this.persist();
+        return;
+      }
       throw Error("模块关联记录读取失败", { cause: e });
     }
     if (!Array.isArray(stored)) throw Error("模块关联记录损坏");
@@ -67,16 +77,25 @@ export class CanvasModuleManager {
           });
       }
     }
+    if (legacy) {
+      for (const file of this.defaults) {
+        const id = path.basename(path.dirname(file));
+        if (this.records.has(id)) continue;
+        try { const record = await this.read(file); this.records.set(record.config.id, record); }
+        catch (error) { if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error; }
+      }
+      await this.persist();
+    }
   }
   private async read(file: string): Promise<CanvasModuleRecord> {
     let configPath: string;
     try { configPath = await fs.realpath(file); }
     catch (error: any) {
-      const parts = path.resolve(file).split(path.sep);
-      const index = parts.lastIndexOf("canvas_moudles");
-      if (error.code !== "ENOENT" || index < 0 || (parts[index - 1] === "extensions" && parts[index - 2] === "scripts")) throw error;
-      if (parts[index - 1] === "extensions") parts.splice(index - 1, 0, "scripts");
-      else parts.splice(index, 0, "scripts", "extensions");
+      const parts = path.resolve(file).split(path.sep).map(part => part === "canvas_moudles" ? "canvas_modules" : part);
+      const index = parts.lastIndexOf("canvas_modules");
+      if (error.code !== "ENOENT" || index < 0) throw error;
+      if (parts[index - 1] === "extensions" && parts[index - 2] !== "scripts") parts.splice(index - 1, 0, "scripts");
+      else if (parts[index - 1] !== "extensions") parts.splice(index, 0, "scripts", "extensions");
       configPath = await fs.realpath(parts.join(path.sep));
     }
     if (path.basename(configPath) !== "config.json")
@@ -84,7 +103,8 @@ export class CanvasModuleManager {
     const stat = await fs.stat(configPath);
     if (stat.size > 1024 * 1024) throw Error("配置超过 1 MB");
     const config = validateCanvasConfig(
-      JSON.parse(await fs.readFile(configPath, "utf8"))
+      JSON.parse(await fs.readFile(configPath, "utf8")),
+      this.defaults.some(file => path.resolve(file).toLowerCase() === configPath.toLowerCase())
     );
     if (path.basename(path.dirname(configPath)) !== config.id)
       throw Error("模块目录名必须与 ID 一致");
@@ -143,11 +163,11 @@ export class CanvasModuleManager {
     await fs.writeFile(
       temporary,
       JSON.stringify(
-        [...this.records.values()].map((r) => ({
+        { version: 2, modules: [...this.records.values()].map((r) => ({
           id: r.config.id,
           configPath: r.configPath,
           enabled: r.enabled,
-        })),
+        })) },
         null,
         2
       )

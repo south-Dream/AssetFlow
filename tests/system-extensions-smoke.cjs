@@ -1,0 +1,54 @@
+const { app, BrowserWindow, ipcMain, protocol } = require("electron");
+const { build } = require("esbuild");
+const path = require("node:path");
+const fs = require("node:fs/promises");
+app.disableHardwareAcceleration();
+app.setPath("userData", path.resolve(`.cache/system-smoke-${process.pid}`));
+protocol.registerSchemesAsPrivileged([{ scheme: "assetflow-system", privileges: { standard: true, secure: true, supportFetchAPI: true } }]);
+const timer = setTimeout(() => { console.error("System extensions smoke timeout"); app.exit(1); }, 45000);
+app.whenReady().then(async () => {
+  await build({ entryPoints: ["scripts/src/extensions/system/host.ts"], outfile: ".cache/system-extensions-smoke.cjs", bundle: true, packages: "external", platform: "node", format: "cjs" });
+  await require(path.resolve(".cache/system-extensions-smoke.cjs")).registerSystemExtensions(path.resolve("examples/extensions/system_modules"));
+  ipcMain.handle("canvasModules.list", () => [require("./shipped-records.cjs").imageRecord]);
+  ipcMain.handle("definitions", () => []);
+  const win = new BrowserWindow({ show: false, width: 1500, height: 940, webPreferences: { preload: path.resolve("dist/node/preload/index.js"), contextIsolation: true, nodeIntegration: false, sandbox: true, backgroundThrottling: false } });
+  const errors = [];
+  win.webContents.on("console-message", (_, level, message) => { if (level >= 3) errors.push(message); });
+  await win.loadFile(path.resolve("dist/ui/index.html"));
+  await win.webContents.executeJavaScript(`(async()=>{
+    const pause=(ms=220)=>new Promise(r=>setTimeout(r,ms));const check=(c,m)=>{if(!c)throw Error(m)};
+    const click=(name,root=document)=>{const item=[...root.querySelectorAll('button,summary')].find(e=>e.textContent.trim()===name);check(item,'Missing '+name);item.click()};
+    await pause(900);const top=document.querySelector('.dock-app > .main-menu');
+    check([...top.querySelectorAll(':scope > .navigation-node > .navigation-trigger')].some(e=>e.tagName==='BUTTON'&&e.textContent==='偏好'),'Top-level direct button missing');
+    const direct=[...top.querySelectorAll(':scope > .navigation-node > .navigation-trigger')].find(e=>e.tagName==='BUTTON'&&e.textContent==='偏好'),summary=top.querySelector(':scope > .navigation-node > button[aria-haspopup="menu"]');const a=getComputedStyle(direct),b=getComputedStyle(summary);check(['height','padding','borderWidth','fontSize','borderRadius'].every(key=>a[key]===b[key]),'Direct navigation buttons do not match menu trigger styling');
+    const roots=[...top.querySelectorAll(':scope > .navigation-node > button')];
+    check(roots.slice(0,3).every(button=>button.dataset.navId.startsWith('system.'))&&roots.slice(3).every(button=>!button.dataset.navId.startsWith('system.')),'System navigation must precede extension nodes');
+    const boxes=roots.map(button=>button.getBoundingClientRect());check(boxes.every(box=>box.top===boxes[0].top)&&boxes.every((box,index)=>!index||box.left-boxes[index-1].right<10),'Top navigation must be one contiguous row');
+    check(!top.querySelector('[data-nav-region]'),'Legacy top regions remain');
+    click('偏好',top);await pause();let dialog=document.querySelector('[aria-label="扩展面板"]');check(dialog,'Direct button did not open panel');
+    const author=dialog.querySelector('input[aria-label="示例作者"]');Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(author,'shared-value');author.dispatchEvent(new Event('input',{bubbles:true}));await pause();
+    dialog.querySelector('[aria-label="关闭扩展面板"]').click();click('扩展示例',top);click('在设置中打开',top);await pause();
+    check(document.querySelector('.unified-settings input[aria-label="示例作者"]').value==='shared-value','Settings and dialog do not share persisted values');
+    click('×',document.querySelector('.unified-settings'));click('扩展选项',top);click('偏好设置',top);click('打开偏好…',top);await pause();
+    check(document.querySelector('[aria-label="扩展面板"]'),'Third-level contribution failed');document.querySelector('[aria-label="关闭扩展面板"]').click();
+    click('扩展示例',top);click('执行示例操作',top);await pause();check(document.body.textContent.includes('系统扩展命令已执行 · shared-value'),'Script command did not read panel preferences');
+    click('扩展示例',top);click('自定义面板',top);await pause(800);check(document.querySelector('[aria-label="自定义面板示例"] iframe'),'Custom dock panel missing');
+  })()`);
+  const frames = win.webContents.mainFrame.frames;
+  const custom = [];
+  for (const frame of frames) {
+    const state = await frame.executeJavaScript(`({custom:!![...document.querySelectorAll('button')].find(button=>button.textContent==='保存示例计数'),require:typeof require,bridge:typeof window.assetFlow,parent:(()=>{try{return !!parent.document.body}catch{return false}})()})`);
+    if (state.custom) custom.push({ frame, state });
+  }
+  if (custom.length !== 1 || custom[0].state.require !== "undefined" || custom[0].state.bridge !== "undefined" || custom[0].state.parent) throw Error("Custom panel isolation failed");
+  await custom[0].frame.executeJavaScript(`document.querySelector('input').value='7';document.querySelector('button').click()`);
+  await new Promise(r => setTimeout(r, 300));
+  const saved = JSON.parse(await fs.readFile(path.join(app.getPath("userData"), "system-extension-values.json"), "utf8"));
+  if (saved["preferences.customPanel"].count !== 7) throw Error("Custom panel state not saved");
+  await win.webContents.executeJavaScript(`window.assetFlow.systemExtensions.saveValues('preferences.customPanel',{count:9}).then(values=>window.dispatchEvent(new CustomEvent('assetflow:system-values',{detail:{panel:'preferences.customPanel',values}})))`);
+  await new Promise(r => setTimeout(r, 150));
+  if (await custom[0].frame.executeJavaScript("document.querySelector('input').value") !== "9") throw Error("Custom panel configuration subscription did not update");
+  await win.webContents.executeJavaScript(`document.querySelector('[aria-label="关闭扩展面板"]').click()`);
+  if (errors.length) throw Error(errors.join("\n"));
+  clearTimeout(timer);console.log("System extensions smoke passed: startup discovery, direct button, commands, third-level contributions, shared settings, custom dock panels and isolation.");app.exit(0);
+}).catch(error => { console.error(error); app.exit(1); });

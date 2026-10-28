@@ -1,5 +1,13 @@
 import { contextBridge, ipcRenderer, webUtils } from "electron";
 contextBridge.exposeInMainWorld("assetFlow", {
+  atlas: {
+    read: (id: string) => ipcRenderer.invoke("atlas.read", id),
+    export: (png: ArrayBuffer, metadata: string, name: string) => ipcRenderer.invoke("atlas.export", png, metadata, name),
+  },
+  importRules: {
+    get: () => ipcRenderer.invoke("importRules.get"),
+    save: (rules: unknown) => ipcRenderer.invoke("importRules.save", rules),
+  },
   workspace: { saveBytes: (id: string, data: ArrayBuffer, name: string|undefined, revision: number) => ipcRenderer.invoke("workspace.saveBytes", id, data, name, revision), saveImage: (id: string, steps: unknown, revision: number) => ipcRenderer.invoke("workspace.saveImage", id, steps, revision) },
   systemExtensions: {
     mount: (id: string) => ipcRenderer.invoke("systemExtensions.mount", id),

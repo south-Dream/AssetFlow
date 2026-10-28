@@ -8,6 +8,8 @@ import { Worker } from "node:worker_threads";
 import { WorkspaceAssetStore } from "./workspaceAssets";
 import sharp from "sharp";
 import { createAssetImporter } from "./assetImport";
+import { writeAtlasExport } from "./atlasFiles";
+import { defaultImportRules, validateImportRules, type ImportRules } from "../shared/filePatterns";
 import { validateImportPaths } from "../shared/importPaths";
 import { registerResourceFiles } from "./resourceFiles";
 import { registerPanelFiles } from "./panelFiles";
@@ -86,7 +88,9 @@ function execute(
   });
 }
 let workspaceStore: WorkspaceAssetStore;
-const importPaths = createAssetImporter(assets, asset => workspaceStore.importAsset(asset));
+let importRules: ImportRules = defaultImportRules;
+const importer = createAssetImporter(assets, asset => workspaceStore.importAsset(asset));
+const importPaths = (paths: string[], recursive: boolean) => importer(paths, recursive, importRules);
 async function batch(ids: string[], steps: Step[], output: Output) {
   running = true;
   cancelled = false;
@@ -172,6 +176,15 @@ async function batch(ids: string[], steps: Step[], output: Output) {
   }
 }
 app.whenReady().then(async () => {
+  const rulesFile = path.join(app.getPath("userData"), "import-rules.json");
+  try { importRules = validateImportRules(JSON.parse(await fs.readFile(rulesFile, "utf8"))); }
+  catch (error) { if ((error as NodeJS.ErrnoException).code !== "ENOENT") console.error("无法读取导入规则，使用默认设置", error); }
+  ipcMain.handle("importRules.get", () => importRules);
+  ipcMain.handle("importRules.save", async (_, input) => {
+    const rules = validateImportRules(input);
+    await fs.writeFile(rulesFile, JSON.stringify(rules), "utf8");
+    importRules = rules;
+  });
   workspaceStore = new WorkspaceAssetStore(path.join(app.getPath("userData"), "working-assets"), assets);
   await workspaceStore.restore();
   await registerSystemExtensions();
@@ -191,6 +204,21 @@ app.whenReady().then(async () => {
     },
   });
   win.setMenuBarVisibility(false);
+  ipcMain.handle("atlas.read", async (_, id) => {
+    const asset = typeof id === "string" ? assets.get(id) : undefined;
+    if (!asset || asset.error || !/^(png|jpe?g|webp)$/i.test(asset.format)) throw Error("图集图片资源无效");
+    const file = asset.savedPath ?? asset.path;
+    if ((await fs.stat(file)).size > 128 * 1024 * 1024) throw Error("单张图片超过 128 MB");
+    const bytes = await fs.readFile(file);
+    return bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength);
+  });
+  ipcMain.handle("atlas.export", async (_, png, metadata, name) => {
+    if (!(png instanceof ArrayBuffer)) throw Error("图集 PNG 数据无效");
+    const result = await dialog.showOpenDialog(win, { title: "选择图集导出位置", properties: ["openDirectory", "createDirectory"] });
+    if (result.canceled || !result.filePaths[0]) return false;
+    await writeAtlasExport(result.filePaths[0], Buffer.from(png), metadata, name);
+    return true;
+  });
   win.webContents.setWindowOpenHandler(() => ({ action: "deny" }));
   win.webContents.on("will-navigate", (event) => event.preventDefault());
   if (process.env.ASSETFLOW_DEV === "1")

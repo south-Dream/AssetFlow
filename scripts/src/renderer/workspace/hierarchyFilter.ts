@@ -1,5 +1,6 @@
 import type { Asset } from "../../shared";
 import { folderPath, type Hierarchy } from "./hierarchy";
+import { matchesPattern } from "../../shared/filePatterns";
 
 function normalizeFormat(format: string): string {
   return format.trim().replace(/^\./, "").toLowerCase();
@@ -21,7 +22,9 @@ export function filterHierarchy(
     const asset = byId.get(id);
     if (!asset || (allowed.size && !allowed.has(normalizeFormat(asset.format)))) return false;
     const path = [folderPath(h, h.locations[id] ?? null), asset.name].filter(Boolean).join("/");
-    return path.toLowerCase().includes(query);
+    return /[*?]/.test(query)
+      ? matchesPattern(query.includes("/") ? path : asset.name, query)
+      : path.toLowerCase().includes(query);
   });
   const folders = new Set<string>();
   const byFolder = new Map(h.folders.map(f => [f.id, f]));

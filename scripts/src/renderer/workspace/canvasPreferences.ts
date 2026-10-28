@@ -104,7 +104,7 @@ export function runCanvasCommand(windowId: string, command: string) {
     new CustomEvent(isTool ? "assetflow:command-request" : "assetflow:command", { detail: { windowId, command } })
   );
 }
-export function acceptCanvasCommand(windowId: string, command: string) { window.dispatchEvent(new CustomEvent("assetflow:command", { detail: { windowId, command } })); }
+export function acceptCanvasCommand(windowId: string, command: string, params?: CanvasValues) { window.dispatchEvent(new CustomEvent("assetflow:command", { detail: { windowId, command, params } })); }
 export function orderTools<T extends { id: string }>(
   tools: readonly T[],
   order: string[]

@@ -1,5 +1,5 @@
 import type { CanvasConfig, ConfigField, CanvasMenu } from "./contracts";
-import { composeNavigation, validateNavigation, validateNavigationLayout } from "../navigation";
+import { composeNavigation, validateNavigation, rejectNavigationLayout } from "../navigation";
 const reserved = new Set(["image", "audio", "atlas", "video", "flow"]);
 function object(value: any): asserts value is Record<string, any> {
   if (!value || typeof value !== "object" || Array.isArray(value))
@@ -188,7 +188,7 @@ export function validateCanvasConfig(
   };
   config.menus = menus(input.menus);
   composeNavigation([{ id: "system.edit", name: "编辑", children: [] }], config.menus.map(menu => ({ ...menu, parent: menu.parent ?? "system.root" })));
-  config.navigation = validateNavigationLayout(input.navigation, ["system.edit", ...config.menus.filter(menu => !menu.parent || menu.parent === "system.root").map(menu => menu.id)]);
+  rejectNavigationLayout(input.navigation);
   config.settings = fields(input.settings);
   if (
     config.settings.some(
@@ -270,6 +270,37 @@ export function validateCanvasConfig(
       maxCount: rule.maxCount ?? 1,
     };
   });
+  if (input.bindings !== undefined) {
+    object(input.bindings);
+    const className = (value: unknown) => {
+      if (typeof value !== "string" || !/^[A-Za-z][A-Za-z0-9_]{0,99}$/.test(value))
+        throw Error("Invalid module-local class name");
+      return value;
+    };
+    const mapping = (value: unknown, expected: string[], kind: string) => {
+      object(value);
+      const actual = Object.keys(value);
+      if (actual.length !== expected.length || actual.some(key => !expected.includes(key)))
+        throw Error(`Bindings must exactly match declared ${kind}`);
+      return Object.fromEntries(actual.map(key => [key, className(value[key])]));
+    };
+    const allFields = [...canvasFields, ...config.tools.flatMap(tool => tool.fields ?? [])];
+    if (Object.keys(input.bindings).some(key => !["canvas", "nodes"].includes(key))) throw Error("Only canvas/nodes bindings are allowed");
+    if (allFields.some(field => field.renderer)) throw Error("Use Canvas.drawProperties or ToolNode.draw for custom drawing");
+    config.bindings = {
+      canvas: className(input.bindings.canvas),
+      nodes: mapping(input.bindings.nodes, config.tools.map(tool => tool.id), "nodes"),
+    };
+    const commands = new Set(config.tools.map(tool => tool.command));
+    if (commands.size !== config.tools.length) throw Error("Function commands must be unique");
+    const checkMenus = (menus: CanvasMenu[]) => { for (const menu of menus) {
+      if (menu.command && !commands.has(menu.command)) throw Error("Navigation must reference a declared function");
+      checkMenus(menu.children ?? []);
+    } };
+    checkMenus(config.menus);
+    if (allFields.some(field => field.command && !commands.has(field.command)))
+      throw Error("Inspector buttons must reference a declared function");
+  }
   if (!builtin && config.resources.length && !config.entry)
     throw Error("资源入口需要脚本 entry");
   const hasCommands = (items: CanvasMenu[]): boolean => items.some(item => !!item.command || hasCommands(item.children ?? []));

@@ -3,16 +3,18 @@ import { configFor, useModules } from "./moduleRegistry";
 import { ExtensionPanelView, useSystemExtensions } from "./SystemExtensions";
 import { SettingsContainer, type SettingsPage } from "./SettingsContainer";
 import { CanvasSettingsPage } from "./CanvasSettingsPage";
+import { ImportSettingsPage } from "./ImportSettingsPage";
 
 export function CanvasSettings({ initialType, windowId, initialSection, onClose, children, extensionPanel }: {
   initialType: string; windowId?: string; initialSection: string; onClose: () => void; children: React.ReactNode; extensionPanel?: string;
 }) {
   const modules = useModules();
   const systemModules = useSystemExtensions();
-  const types = [{ id: "image", name: "图片" }, ...modules.filter(record => record.enabled && !record.error).map(record => record.config)];
+  const types: { id: string; name: string }[] = modules.filter(record => record.enabled && !record.error).map(record => record.config);
   if (initialType && !types.some(type => type.id === initialType)) types.push({ id: initialType, name: configFor(initialType)?.name ?? initialType });
   const pages: SettingsPage[] = [
     { id: "workspace", name: "工作区", content: children },
+    { id: "import", name: "资源导入", content: <ImportSettingsPage /> },
     ...types.map(type => ({ id: "canvas:" + type.id, name: type.name, content: <CanvasSettingsPage type={type.id} windowId={windowId} initialSection={type.id === initialType ? initialSection : "display"} /> }))
   ];
   for (const record of systemModules) if (!record.error && record.config) for (const page of record.config.settingsPages) if (!pages.some(item => item.id === "extension:" + page.panel)) pages.push({

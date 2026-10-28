@@ -1,1 +1,1 @@
-export * from "../../../extensions/canvas_moudles/sdk/contracts";
+export * from "../../../extensions/canvas_modules/sdk/contracts";

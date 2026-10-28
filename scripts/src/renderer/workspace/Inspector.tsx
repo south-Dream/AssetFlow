@@ -1,25 +1,27 @@
+import { imageToolNode } from "./imageNodes";
 import React, { useEffect, useState } from "react";
 import type { Definition, Step, PanelSnapshot } from "../../shared";
 import type { ImageDocument } from "../ImageWorkspace";
-import { InspectorLayout } from "./InspectorLayout";
 import { finishImageEdit, imageDraftError } from "./imageEditing";
 
-export function Inspector({
+export function Inspector(props: Parameters<typeof ImageToolParameters>[0] & { windowId?: string }) {
+  const current = props.document?.editing?.draft;
+  const node = current ? imageToolNode(props.windowId ?? "image", `image.${current.processor}`) : undefined;
+  return node ? node.draw({ render: () => <ImageToolParameters {...props} /> }) : <ImageToolParameters {...props} />;
+}
+
+function ImageToolParameters({
   saved,
   showHistory,
   onShowHistory,
-  title,
   document,
   setDocument: commitDocument,
-  connections,
 }: {
   saved?: PanelSnapshot;
   showHistory: boolean;
   onShowHistory: () => void;
-  title: string;
   document?: ImageDocument;
   setDocument: React.Dispatch<React.SetStateAction<ImageDocument>>;
-  connections?: React.ReactNode;
 }) {
   const [definitions, setDefinitions] = useState<Definition[]>([]);
   useEffect(() => {
@@ -76,7 +78,6 @@ export function Inspector({
       };
     });
   return (
-    <InspectorLayout title={title} connections={connections}>
       <div className="parameters">
         {current && definition ? (
           <>
@@ -262,6 +263,5 @@ export function Inspector({
           <p className="hint">从画布左侧选择操作，在此调整参数。</p>
         )}
       </div>
-    </InspectorLayout>
   );
 }

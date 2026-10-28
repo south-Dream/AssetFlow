@@ -4,9 +4,11 @@ import { randomUUID } from "node:crypto";
 import sharp from "sharp";
 import type { Asset } from "../shared";
 import { validateImportPaths } from "../shared/importPaths";
+import { acceptsFile, defaultImportRules, validateImportRules, type ImportRules } from "../shared/filePatterns";
 
 export function createAssetImporter(assets: Map<string, Asset>, materialize?: (asset: Asset) => Promise<Asset>) {
-  return async function importPaths(paths: string[], recursive: boolean) {
+  return async function importPaths(paths: string[], recursive: boolean, inputRules: ImportRules = defaultImportRules) {
+    const rules = validateImportRules(inputRules);
     validateImportPaths(paths, process.platform);
     const added: Asset[] = [];
     const known = new Set(
@@ -39,6 +41,7 @@ export function createAssetImporter(assets: Map<string, Asset>, materialize?: (a
           await visit(path.join(file, item), root, depth + 1);
         return;
       }
+      if (!acceptsFile(path.basename(file), path.relative(root, file).replace(/\\/g, "/"), rules)) return;
       if (known.has(file.toLowerCase())) {
         const existing = [...assets.values()].find(
           (a) => (a.sourcePath ?? a.path).toLowerCase() === file.toLowerCase(),

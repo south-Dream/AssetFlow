@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import type { Asset } from "../../shared";
 import type { Hierarchy } from "./hierarchy";
 import { assetType, type AssetIcons } from "./assetTypes";
-import { filterHierarchy, hierarchyFormats } from "./hierarchyFilter";
+import { filterHierarchy } from "./hierarchyFilter";
 import "./hierarchy-filters.css";
 type Props = {
   hierarchy: Hierarchy;
@@ -32,11 +32,9 @@ export function HierarchyPanel({
   const [name, setName] = useState("新建文件夹");
   const [collapsed, setCollapsed] = useState<string[]>([]);
   const [search, setSearch] = useState("");
-  const [formats, setFormats] = useState<string[]>([]);
   const [filteredCollapsed, setFilteredCollapsed] = useState<string[]>([]);
-  const filtering = Boolean(search.trim() || formats.length);
-  const visible = filterHierarchy(h, assets, search, formats);
-  const availableFormats = [...new Set([...hierarchyFormats(h, assets), ...formats])].sort();
+  const filtering = Boolean(search.trim());
+  const visible = filterHierarchy(h, assets, search, []);
   const activeCollapsed = filtering ? filteredCollapsed : collapsed;
   const updateCollapsed = filtering ? setFilteredCollapsed : setCollapsed;
   function select(id: string, event: React.MouseEvent) {
@@ -180,30 +178,12 @@ export function HierarchyPanel({
           className="hierarchy-search"
           type="search"
           aria-label="搜索资源名称或层级路径"
-          placeholder="搜索名称或路径"
+          placeholder="搜索名称、路径或 *.jpg"
+          title="支持关键字、*.jpg、xxx.* 和路径通配符"
           value={search}
           onChange={(e) => { setSearch(e.target.value); setFilteredCollapsed([]); }}
         />
-        <details className="hierarchy-format-filter">
-          <summary title="按格式筛选">格式{formats.length ? ` (${formats.length})` : ""}</summary>
-          <div className="hierarchy-format-options">
-            <button type="button" onClick={() => { setFormats([]); setFilteredCollapsed([]); }}>全部格式</button>
-            {availableFormats.map(format => (
-              <label key={format}>
-                <input
-                  type="checkbox"
-                  checked={formats.includes(format)}
-                  onChange={() => {
-                    setFormats(old => old.includes(format) ? old.filter(value => value !== format) : [...old, format]);
-                    setFilteredCollapsed([]);
-                  }}
-                />
-                {format.toUpperCase()}
-              </label>
-            ))}
-            {!availableFormats.length && <span className="hint">暂无格式</span>}
-          </div>
-        </details>
+
       </div>
       <div
         className={`asset-list${!visible.assetIds.length && !visible.folders.length ? " hierarchy-empty-list" : ""}`}
@@ -216,7 +196,7 @@ export function HierarchyPanel({
       >
         {content(null, 0)}
         {!visible.assetIds.length && !visible.folders.length && (
-          <p className="hint hierarchy-empty-message">{filtering ? "没有匹配资源" : "暂无资源"}</p>
+          <p className="hint hierarchy-empty-message">{filtering ? "没有匹配资源" : "拖入文件或文件夹以导入"}</p>
         )}
       </div>
       {menu && (

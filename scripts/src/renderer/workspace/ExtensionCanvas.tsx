@@ -159,7 +159,7 @@ export function ExtensionCanvas({
     if (!url) return;
     let live = true;
     const timeout = window.setTimeout(
-      () => setError("模块启动超时，请检查 activate() 是否完成"),
+      () => setError("模块启动超时，请检查 Canvas.draw() 是否完成"),
       10000
     );
     const message = (event: MessageEvent) => {
@@ -203,8 +203,9 @@ export function ExtensionCanvas({
         setError(String(value).slice(0, 2000));
       }
       if (type === "notice") callbacks.current.onNotice(String(value));
+      if (type === "tool-selected") window.dispatchEvent(new CustomEvent("assetflow:tool-selected", { detail: { windowId, ...value } }));
       if (type === "tool-dirty") window.dispatchEvent(new CustomEvent("assetflow:tool-dirty", { detail: { windowId, dirty: !!value } }));
-      if (type === "resource-result" || type === "tool-result") {
+      if (type === "resource-result" || type === "tool-result" || type === "operation-result") {
         const request = requests.current.get(value?.requestId);
         if (request) {
           requests.current.delete(value.requestId);
@@ -333,6 +334,7 @@ export function ExtensionCanvas({
   useEffect(() => {
     if (!ready || !payload) return;
     const fields = [
+      ...(payload.config.bindings ? [{ id: `${payload.config.id}.__canvas`, renderer: `${payload.config.id}.__canvas` }, ...payload.config.tools.filter(tool => tool.kind !== "command").map(tool => ({ id: `${tool.id}.__tool`, renderer: `${tool.id}.__tool` }))] : []),
       ...(payload.config.inspector?.canvas ?? []),
       ...payload.config.tools.flatMap((tool) => tool.fields ?? []),
     ];
@@ -468,9 +470,21 @@ export function ExtensionCanvas({
 
       }
     };
+    const history = (event: Event) => {
+      const detail = (event as CustomEvent).detail;
+      if (detail?.windowId !== windowId) return;
+      const requestId = crypto.randomUUID();
+      const timer = window.setTimeout(() => { requests.current.delete(requestId); detail.reject?.(Error("Canvas operation timed out")); }, 30000);
+      requests.current.set(requestId, { resolve: () => detail.resolve?.(), reject: error => detail.reject?.(error), timer });
+      send(event.type.endsWith("undo") ? "undo" : "clear", { requestId });
+    };
+    window.addEventListener("assetflow:canvas-undo", history);
+    window.addEventListener("assetflow:canvas-clear", history);
     window.addEventListener("assetflow:command", command);
     window.addEventListener("assetflow:tool", command);
     return () => {
+      window.removeEventListener("assetflow:canvas-undo", history);
+      window.removeEventListener("assetflow:canvas-clear", history);
       window.removeEventListener("assetflow:command", command);
       window.removeEventListener("assetflow:tool", command);
     };

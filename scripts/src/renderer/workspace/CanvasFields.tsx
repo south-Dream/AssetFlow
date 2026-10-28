@@ -7,12 +7,15 @@ export function CanvasFields({
   values,
   onChange,
   windowId,
+  onFieldChange,
 }: {
   fields: ConfigField[];
   values: CanvasValues;
   onChange: (values: CanvasValues) => void;
   windowId?: string;
+  onFieldChange?: (id: string, value: string | number | boolean) => void;
 }) {
+  const update = (id: string, value: string | number | boolean) => onFieldChange ? onFieldChange(id, value) : onChange({ ...values, [id]: value });
   return (
     <>
       {[...fields]
@@ -43,7 +46,7 @@ export function CanvasFields({
                 aria-label={field.name}
                 value={String(values[field.id] ?? field.default)}
                 onChange={(e) =>
-                  onChange({ ...values, [field.id]: e.target.value })
+                  update(field.id, e.target.value)
                 }
               >
                 {field.options?.map((value) => (
@@ -76,15 +79,13 @@ export function CanvasFields({
                     : String(values[field.id] ?? field.default)
                 }
                 onChange={(e) =>
-                  onChange({
-                    ...values,
-                    [field.id]:
+                  update(field.id,
                       field.type === "boolean"
                         ? e.target.checked
                         : field.type === "number"
                         ? Number(e.target.value)
                         : e.target.value,
-                  })
+                  )
                 }
               />
             )}

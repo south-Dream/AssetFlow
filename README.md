@@ -4,6 +4,10 @@
 
 通过「资源层级 + 画布 + Inspector」管理和编辑资产，目前内置图片裁剪、缩放、旋转、透明裁剪和移除背景等能力。
 
+通过「编辑 → 新建画布 → 图集」打开图集画布，也可在现有画布「编辑 → 类型」切换。支持拖入多张图片自动排版，提供紧凑/网格布局、自动/固定尺寸、2 的幂尺寸、透明裁边和边缘扩展。操作入口统一位于画布左侧；选中「自动排版」后，Inspector 下方只显示该操作参数，支持预览、应用和取消。选择左侧「导出图集」，设置文件名后应用以导出 PNG + JSON，或按 Ctrl+S 导出；图集不会保存到任何输入图片上。左侧「恢复上次图集」可在新画布中恢复最近的图片引用和设置。当前为单页、不旋转打包，最多 256 张图片、输出最多 16777216 像素。
+
+预装的图片和图集包都能停用或卸载。关闭对应画布后，在包管理器右键操作；移除关联保留文件，卸载并移至回收站会移走整个包目录。全部移除后仍可使用资源层级和包管理器，重启不会恢复已卸载包。
+
 ## 使用
 
 1. 导入文件或文件夹，将资产拖入对应类型的画布。
@@ -11,7 +15,7 @@
 3. 点击「文件 → 保存」或按 `Ctrl+S`，将当前画布结果保存到关联资产。
 4. 点击「文件 → 导出」，勾选文件和文件夹，输出 ZIP 或新目录；图片可设置格式、质量和命名模板。
 
-导入的资源使用内部副本，编辑和保存不会修改原文件。层级顶部支持名称、路径搜索和格式筛选。
+导入的资源使用内部副本，编辑和保存不会修改原文件。文件或整个文件夹可直接拖入左侧层级，目录结构会保留。层级搜索支持名称、路径关键字及 `*.jpg`、`xxx.*` 等通配符（忽略大小写）。在「设置 → 资源导入」配置白名单和黑名单，白名单留空接收所有类型，黑名单优先，默认排除 `*.meta`；规则保存后只影响后续导入。
 
 ## 开发与构建
 
@@ -30,7 +34,7 @@ npm run package      # 构建 Windows 应用
 
 构建后运行 `release/AssetFlow.exe`，分发时保留整个 `release` 目录。依赖、构建产物和模型权重不提交到仓库。
 
-移除背景需要单独安装 Python 依赖和模型，见 [rembg 安装说明](scripts/extensions/canvas_moudles/image/modules/background-removal/rembg/README.md)。
+移除背景需要单独安装 Python 依赖和模型，见 [rembg 安装说明](scripts/extensions/canvas_modules/image/modules/background-removal/rembg/README.md)。
 
 ## 目录
 
@@ -38,9 +42,9 @@ npm run package      # 构建 Windows 应用
 scripts/
 ├─ src/          核心、界面与扩展宿主
 ├─ extensions/   内置能力、扩展配置和公共 SDK
-├─ build/        开发、编译与打包脚本
-└─ tests/        自动化测试
-test/extensions/ 外部扩展接入示例，不自动加载
+└─ build/        开发、编译与打包脚本
+examples/        可安装示例：地图/音频/视频画布、系统导航
+tests/           自动化检查，与可安装示例分开
 docs/            项目文档
 ```
 
@@ -52,4 +56,6 @@ docs/            项目文档
 
 配置用于声明入口，具体功能由模块脚本实现。系统和画布共用导航规则；普通参数可配置显示，特殊字段可使用自定义绘制接口。画布通过资源接口接收文件，通过 `onSave` 返回要保存的内容。
 
-详见 [扩展文档](scripts/extensions/docs/README.md)、[画布规范](scripts/extensions/canvas_moudles/docs/README.md) 和 [示例接入练习](test/README.md)。
+详见 [扩展文档](scripts/extensions/docs/README.md)、[画布规范](scripts/extensions/canvas_modules/docs/README.md) 和 [示例接入练习](examples/README.md)。
+
+找测试画布和测试导航看 [examples 目录说明](examples/README.md)；查每个自动化脚本的作用看 [tests 检查索引](tests/README.md)。

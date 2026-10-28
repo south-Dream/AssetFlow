@@ -1,6 +1,6 @@
 # 系统扩展与通用面板
 
-参考根目录 `test/extensions/system_modules/preferences/` 中的外部练习包；它不自动加载、不随本体发布。手动合并流程见根目录 `test/README.md`。复制时同时修改文件夹名、config.id 和所有命名空间 ID，然后重启软件。
+参考根目录 `examples/extensions/system_modules/preferences/` 中的外部练习包；它不自动加载、不随本体发布。手动合并流程见根目录 `examples/README.md`。复制时同时修改文件夹名、config.id 和所有命名空间 ID，然后重启软件。
 
 ## 配置
 

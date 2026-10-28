@@ -1,17 +1,15 @@
-import type { ConfigField, CanvasValues } from "../canvas_moudles/sdk/contracts";
+import type { ConfigField, CanvasValues } from "../canvas_modules/sdk/contracts";
 export type PanelHost = "dialog" | "settings" | "dock";
 export type NavigationAction = { type: "openPanel"; panel: string; host?: PanelHost };
-export type NavNode = {
+export type NavigationNodeConfig = {
   id: string; name: string; order?: number;
-  command?: string; action?: NavigationAction; children?: NavNode[];
+  command?: string; action?: NavigationAction; children?: NavigationNodeConfig[];
 };
 /** Contribution target is registration metadata, never drawing placement. */
-export type NavigationItem = NavNode & { parent?: string };
-export type NavigationRegions = Record<string, string[]>;
-export type NavigationLayout = { regions: NavigationRegions; order?: string[] };
-export type NavigationContainerDefinition = { root: NavNode; regions: NavigationRegions; order: string[] };
+export type NavigationItem = NavigationNodeConfig & { parent?: string };
+export type NavigationContainerDefinition = { root: NavigationNodeConfig };
 export abstract class NavigationContainerBase {
-  abstract build(nodes: readonly NavNode[], layout?: NavigationLayout): NavigationContainerDefinition;
+  abstract build(nodes: readonly NavigationNodeConfig[]): NavigationContainerDefinition;
 }
 export type ExtensionPanelConfig = {
   id: string; name: string; renderer: "form" | "custom"; fields: ConfigField[];
@@ -19,7 +17,6 @@ export type ExtensionPanelConfig = {
 export type SystemExtensionConfig = {
   id: string; name: string; desc: string; schemaVersion: 1; sdkVersion: 1;
   entry?: string; menus: NavigationItem[]; panels: ExtensionPanelConfig[];
-  navigation?: NavigationLayout;
   settingsPages: { id: string; name: string; panel: string }[];
 };
 export type SystemExtensionRecord = { folder: string; config?: SystemExtensionConfig; source: string; error?: string };

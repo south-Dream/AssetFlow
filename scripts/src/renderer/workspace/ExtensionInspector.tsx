@@ -1,21 +1,21 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import type { CanvasTool, CanvasValues } from "../../extensions/canvas/contracts";
 import { fieldDefaults, validateValues } from "../../extensions/canvas/config";
+import { InspectorMgr } from "./managers";
+import { NodeInspectorDraw } from "./NodeInspectorDraw";
 import { CanvasFields } from "./CanvasFields";
 import { acceptCanvasCommand } from "./canvasPreferences";
 import { sameToolParams, confirmToolSwitch, sendToolPhase } from "./toolSwitch";
 import { registerCanvasSavePreparation } from "./canvasSavePreparation";
-import { InspectorLayout } from "./InspectorLayout";
+import { getCanvasToolParams } from "./canvasToolHost";
 import { configFor, useModules } from "./moduleRegistry";
 
-export function ExtensionInspector({
+export function CanvasOperationRuntime({
   windowId,
   type,
-  connections,
 }: {
   windowId: string;
   type: string;
-  connections: React.ReactNode;
 }) {
   useModules();
   const config = configFor(type);
@@ -29,8 +29,7 @@ export function ExtensionInspector({
   const draft = useRef<{ tool: CanvasTool; params: CanvasValues } | undefined>(
     undefined
   );
-  const renderedDraft = useMemo(() => tool ? { tool, params } : undefined, [tool, params]);
-  draft.current = renderedDraft;
+
   const emit = (phase: string, selected = tool, values = params) => {
     if (selected)
       window.dispatchEvent(
@@ -58,11 +57,11 @@ export function ExtensionInspector({
         }
         explicitDirty.current = false;
         if (next.kind === "command") { draft.current = undefined; setTool(undefined); acceptCanvasCommand(windowId, next.command); return; }
-        const values = fieldDefaults(next.fields ?? []);
+        const values = validateValues(next.fields ?? [], getCanvasToolParams(windowId, next.id, fieldDefaults(next.fields ?? [])));
         baseline.current = structuredClone(values);
         draft.current = { tool: next, params: values };
         setTool(next); setParams(values); setError("");
-        acceptCanvasCommand(windowId, next.command);
+        acceptCanvasCommand(windowId, next.command, values);
         queueMicrotask(() => emit("preview", next, values));
       };
       queue.current = queue.current.then(execute).catch(error => setError(String(error)));
@@ -80,8 +79,12 @@ export function ExtensionInspector({
   );
   useEffect(() => {
     const reset = (event: Event) => {
-      if ((event as CustomEvent).detail.windowId === windowId)
-        setTool(undefined);
+      if ((event as CustomEvent).detail.windowId === windowId) {
+        draft.current = undefined;
+        explicitDirty.current = false;
+        baseline.current = {};
+        setTool(undefined); setParams({}); setError("");
+      }
     };
     window.addEventListener("assetflow:runtime-reset", reset);
     return () => window.removeEventListener("assetflow:runtime-reset", reset);
@@ -110,28 +113,50 @@ export function ExtensionInspector({
       if (draft.current === current) { draft.current = undefined; explicitDirty.current = false; setTool(undefined); }
     }
   }), [windowId]);
+  useEffect(() => { InspectorMgr.operation(windowId).set({ tool, params, error, busy }); }, [windowId, tool, params, error, busy]);
+  useEffect(() => {
+    const receive = (event: Event) => {
+      const detail = (event as CustomEvent).detail;
+      if (detail?.windowId !== windowId) return;
+      if (event.type === "assetflow:tool-selected") {
+        const next = config?.tools.find(item => item.id === detail.tool);
+        const values = next ? validateValues(next.fields ?? [], detail.params ?? {}) : {};
+        // Selection notification only updates display. It never starts another operation.
+        const current = draft.current;
+        if (next && current?.tool.id === next.id && sameToolParams(current.params, values)) return;
+        baseline.current = structuredClone(values); explicitDirty.current = false;
+        draft.current = next ? { tool: next, params: values } : undefined;
+        setTool(next); setParams(values); setError("");
+      } else if (detail.phase) finish(detail.phase);
+      else {
+        const current = draft.current; if (!current) return;
+        const values = detail.values;
+        draft.current = { tool: current.tool, params: values }; setParams(values);
+        try { validateValues(current.tool.fields ?? [], values); emit("preview", current.tool, values); setError(""); }
+        catch (error) { setError(String(error)); }
+      }
+    };
+    window.addEventListener("assetflow:tool-selected", receive);
+    window.addEventListener("assetflow:inspector-operation", receive);
+    return () => { window.removeEventListener("assetflow:tool-selected", receive); window.removeEventListener("assetflow:inspector-operation", receive); };
+  });
+  return null;
+}
+
+export function ExtensionInspector({ windowId, type }: { windowId: string; type: string }) {
+  useModules();
+  const config = configFor(type);
+  const store = InspectorMgr.operation(windowId);
+  const { tool, params, error, busy } = useSyncExternalStore(store.subscribe, store.get);
+  const change = (values: CanvasValues) => window.dispatchEvent(new CustomEvent("assetflow:inspector-operation", { detail: { windowId, values } }));
+  const finish = (phase: "apply" | "cancel") => window.dispatchEvent(new CustomEvent("assetflow:inspector-operation", { detail: { windowId, phase } }));
   return (
-    <InspectorLayout title={config?.name ?? type} connections={connections}>
       <div className="parameters">
         {tool ? (
           <>
             <h3>{tool.name}</h3>
             <fieldset disabled={busy} style={{ border: 0, padding: 0, margin: 0, minWidth: 0 }}>
-            <CanvasFields
-              windowId={windowId}
-              fields={tool.fields ?? []}
-              values={params}
-              onChange={(values) => {
-                setParams(values);
-                try {
-                  validateValues(tool.fields ?? [], values);
-                  emit("preview", tool, values);
-                  setError("");
-                } catch (e) {
-                  setError(String(e));
-                }
-              }}
-            />
+            {config?.bindings ? <NodeInspectorDraw windowId={windowId} id={`${tool.id}.__tool`} values={params} onChange={change} /> : <CanvasFields windowId={windowId} fields={tool.fields ?? []} values={params} onChange={change} />}
             <button
               disabled={!!error || busy}
               onClick={() => {
@@ -154,11 +179,10 @@ export function ExtensionInspector({
         ) : (
           <p className="hint">
             {config?.tools.length
-              ? "从画布工具栏或编辑菜单选择工具"
+              ? "从画布左侧选择操作，在此调整参数。"
               : "此类型尚未提供编辑工具"}
           </p>
         )}
       </div>
-    </InspectorLayout>
   );
 }

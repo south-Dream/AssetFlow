@@ -11,6 +11,7 @@ import type {
 } from "../../extensions/canvas/contracts";
 import { validateValues } from "../../extensions/canvas/config";
 import { validateInspectorUI } from "../../extensions/canvas/inspectorUI";
+import { CanvasFields } from "./CanvasFields";
 import {
   drawField,
   drawerRevision,
@@ -30,9 +31,16 @@ export function DrawerField({
 }) {
   const revision = useSyncExternalStore(subscribeDrawers, drawerRevision);
   const callback = useRef({ values, onChange });
+  const displayed = useRef<DrawerSession | undefined>(undefined);
+  useEffect(() => () => { displayed.current?.dispose(); displayed.current = undefined; }, []);
   callback.current = { values, onChange };
   const [session, setSession] = useState<DrawerSession>(),
     [error, setError] = useState("");
+  useEffect(() => {
+    if (session !== displayed.current) {
+      displayed.current?.dispose(); displayed.current = session;
+    }
+  }, [session]);
   const key = JSON.stringify(values);
   useEffect(() => {
     let live = true;
@@ -44,6 +52,7 @@ export function DrawerField({
       field,
       values,
       (value) => {
+        if (controller.signal.aborted && displayed.current !== current) return;
         try {
           validateValues([field], { [field.id]: value });
           callback.current.onChange({
@@ -75,7 +84,7 @@ export function DrawerField({
     return () => {
       live = false;
       controller.abort();
-      current?.dispose();
+      if (current !== displayed.current) current?.dispose();
     };
   }, [windowId, field, key, revision]);
   let count = 0;
@@ -84,7 +93,10 @@ export function DrawerField({
     const event = (value?: unknown) => {
       if (node.event) session?.event(node.event, value);
     };
-    if (node.kind === "text") return <span>{String(node.text ?? "")}</span>;
+    if (node.kind === "fields") return <CanvasFields windowId={windowId} fields={node.fields ?? []} values={node.values ?? {}} onChange={event} onFieldChange={(id, value) => {
+      node.values = { ...node.values, [id]: value }; event(node.values);
+    }} />;
+    if (node.kind === "text") return <span role={node.role}>{String(node.text ?? "")}</span>;
     if (node.kind === "button")
       return (
         <button type="button" onClick={() => event()}>

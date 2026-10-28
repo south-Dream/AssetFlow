@@ -1,6 +1,14 @@
 import type { ImageDocument } from "../ImageWorkspace";
 import { validateSteps } from "../../core/registry";
 import { sameToolParams } from "./toolSwitch";
+/** Restore the remaining last operation, including the inspector selection. */
+export function restoreImageInspector(document: ImageDocument): ImageDocument {
+  const step = document.steps.at(-1);
+  return { ...structuredClone(document), activeStepId: step?.id ?? "", editing: step ? {
+    draft: structuredClone(step), prefix: structuredClone(document.steps.slice(0, -1)), fresh: false,
+    initialParams: structuredClone(step.params),
+  } : null };
+}
 export function imageDraftChanged(document: ImageDocument): boolean {
   const edit = document.editing;
   return !!edit && (edit.initialParams ? !sameToolParams(edit.draft.params, edit.initialParams) : !!edit.dirty);

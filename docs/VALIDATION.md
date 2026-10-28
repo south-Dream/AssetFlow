@@ -22,7 +22,7 @@
 - 九类无效参数输入：被正确拒绝。
 - 使用真实临时目录执行导出写入检查：原图字节未变化；八个同名并发写入生成不同文件；已取消的写入未生成输出；路径穿越名称被拒绝。
 
-可在依赖安装完成后通过 `node scripts/build/offline-check.cjs` 重复基础检查；也可通过 `ASSETFLOW_TYPESCRIPT` 指定本地 TypeScript 模块路径。完整测试命令为 `npm test`。
+当前统一使用 `npm run typecheck`、`npm test` 和 `npm run test:smoke`。旧离线检查脚本已移除；检查用途和入口见 [tests 索引](../tests/README.md)。
 
 ## 未执行及阻碍
 
@@ -41,7 +41,7 @@
 
 ## 已编写、待执行的自动化测试
 
-`scripts/tests/core.test.ts` 动态生成典型图片，无需下载测试素材，覆盖：
+`tests/core.test.ts` 动态生成典型图片，无需下载测试素材，覆盖：
 
 1. 注册表及无效参数。
 2. 缩放 → 裁剪 → 旋转的顺序与原图保护。

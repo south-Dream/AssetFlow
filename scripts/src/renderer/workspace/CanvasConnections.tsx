@@ -1,15 +1,8 @@
 import React from "react";
 
 type Option = { value: string; label: string };
-export function CanvasConnections({
-  input,
-  inputs,
-  outputs,
-  targets,
-  onInput,
-  onOutputs,
-  onDrop,
-}: {
+export type CanvasConnectionsProps = {
+  disabled?: boolean;
   input: string;
   inputs: Option[];
   outputs: string[];
@@ -17,12 +10,23 @@ export function CanvasConnections({
   onInput: (value: string) => void;
   onOutputs: (values: string[]) => void;
   onDrop: (event: React.DragEvent) => void;
-}) {
+};
+export function CanvasConnections({
+  disabled = false,
+  input,
+  inputs,
+  outputs,
+  targets,
+  onInput,
+  onOutputs,
+  onDrop,
+}: CanvasConnectionsProps) {
   return (
     <div className="canvas-connections">
       <label
         className="field"
         onDragOver={(event) => {
+          if (disabled) return;
           event.preventDefault();
           event.stopPropagation();
         }}
@@ -30,6 +34,7 @@ export function CanvasConnections({
       >
         <span>输入源</span>
         <select
+          disabled={disabled}
           aria-label="输入源"
           value={input}
           onChange={(event) => onInput(event.target.value)}
@@ -45,10 +50,12 @@ export function CanvasConnections({
       <div
         className="field"
         onDragOver={(event) => {
+          if (disabled) return;
           event.preventDefault();
           event.stopPropagation();
         }}
         onDrop={(event) => {
+          if (disabled) return;
           event.preventDefault();
           event.stopPropagation();
           const panel = event.dataTransfer.getData(
@@ -66,6 +73,7 @@ export function CanvasConnections({
                 {targets.find((item) => item.value === id)?.label ?? id}
               </span>
               <button
+                disabled={disabled}
                 type="button"
                 aria-label="断开输出关联"
                 onClick={() =>
@@ -77,6 +85,7 @@ export function CanvasConnections({
             </div>
           ))}
           <select
+            disabled={disabled}
             aria-label="添加输出画布"
             value=""
             onChange={(event) => onOutputs([...outputs, event.target.value])}

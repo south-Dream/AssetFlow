@@ -1,9 +1,11 @@
-import React, { useEffect, useRef, useState } from "react";
+import { requestCanvasOperation } from "./workspace/canvasOperation";
+import { imageToolNode, releaseImageNodes } from "./workspace/imageNodes";
+import React, { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import type { Asset, Progress } from "../shared";
 import type { PanelSnapshot } from "../shared";
 import { droppedFilePaths } from "../shared/importPaths";
 import { ImageWorkspace } from "./ImageWorkspace";
-import { createImageResourceAPI } from "../../extensions/canvas_moudles/image/resourceHandler";
+import { createImageResourceAPI } from "../../extensions/canvas_modules/image/resourceHandler";
 import { matchResourceRule, toResourceRef } from "../extensions/canvas/resources";
 import type { CanvasResourceRef } from "../extensions/canvas/contracts";
 import {
@@ -43,15 +45,17 @@ import {
   folderPath,
   type Hierarchy,
 } from "./workspace/hierarchy";
+import { CanvasMgr, HierarchyMgr, CanvasHistory } from "./workspace/managers";
+import { restoreImageInspector } from "./workspace/imageEditing";
 import { Inspector } from "./workspace/Inspector";
-import { CanvasConnections } from "./workspace/CanvasConnections";
+import { CanvasInspector } from "./workspace/CanvasInspector";
+import { CanvasFrame } from "./workspace/CanvasFrame";
+import type { CanvasConnectionsProps } from "./workspace/CanvasConnections";
 import {
   canLinkCanvas,
   resolveCanvas,
   resolvePreviewCanvas,
 } from "./workspace/canvasLinks";
-import { PanelToolbar } from "./workspace/PanelToolbar";
-import { CanvasBaseProperties } from "./workspace/CanvasBaseProperties";
 import {
   getCanvasPreferences,
   setCanvasPreferences,
@@ -59,7 +63,6 @@ import {
 import { ToolSwitchDialog, confirmToolSwitch } from "./workspace/toolSwitch";
 import { imageDraftChanged, imageDraftError, finishImageEdit } from "./workspace/imageEditing";
 import { acceptCanvasCommand } from "./workspace/canvasPreferences";
-import { CanvasToolbox } from "./workspace/CanvasToolbox";
 import { ModuleManager } from "./workspace/ModuleManager";
 import { saveCanvas } from "./workspace/canvasSaveHost";
 import { prepareCanvasSave, canvasInspectorDirty } from "./workspace/canvasSavePreparation";
@@ -67,7 +70,8 @@ import { ExportSelectionDialog } from "./workspace/ExportSelectionDialog";
 import { ImageOutputDialog } from "./workspace/ImageOutputDialog";
 import { CanvasSettings } from "./workspace/CanvasSettings";
 import { ExtensionCanvas } from "./workspace/ExtensionCanvas";
-import { ExtensionInspector } from "./workspace/ExtensionInspector";
+import { ExtensionInspector, CanvasOperationRuntime } from "./workspace/ExtensionInspector";
+import { NativeCanvas, hasNativeCanvas, saveNativeCanvas } from "./workspace/nativeCanvas";
 import {
   configFor,
   refreshModules,
@@ -83,6 +87,8 @@ import {
   type AssetIcons,
 } from "./workspace/assetTypes";
 import "./app-workspace.css";
+
+
 
 export function Workspace() {
   useModules();
@@ -159,16 +165,35 @@ export function Workspace() {
       );
   }, []);
   const [initialHierarchyId] = useState(() => crypto.randomUUID());
-  const [hierarchies, setHierarchies] = useState<Hierarchy[]>(() => [
+  const [hierarchiesInitial] = useState<Hierarchy[]>(() => [
     { ...createHierarchy("层级"), id: initialHierarchyId },
   ]);
+  useState(() => { HierarchyMgr.hierarchies.set(hierarchiesInitial); return true; });
+  const hierarchies = useSyncExternalStore(HierarchyMgr.hierarchies.subscribe, HierarchyMgr.hierarchies.get);
+  const setHierarchies = HierarchyMgr.hierarchies.set;
   const [initialWindows] = useState<WorkspaceWindow[]>(() => [
-    createWindow(0),
-    createWindow(1),
+    createWindow(0, ""),
+    createWindow(1, ""),
   ]);
-  const [windows, setWindows] = useState<WorkspaceWindow[]>(initialWindows);
-  const [documents, setDocuments] = useState<Record<string, ImageDocument>>({});
-  const documentsRef = useRef(documents); documentsRef.current = documents;
+  useState(() => { CanvasMgr.canvases.set(initialWindows); CanvasMgr.select(initialWindows[0].id); HierarchyMgr.assets.set([]); return true; });
+  const windows = useSyncExternalStore(CanvasMgr.canvases.subscribe, CanvasMgr.canvases.get);
+  const setWindows = CanvasMgr.canvases.set;
+  const [documents, setDocumentsRaw] = useState<Record<string, ImageDocument>>({});
+  const imageHistories = useRef(new Map<string, CanvasHistory<ImageDocument>>());
+  const restoringImage = useRef(false);
+  const documentsRef = useRef(documents);
+  function setDocuments(update: React.SetStateAction<Record<string, ImageDocument>>) {
+    const before = documentsRef.current;
+    const next = typeof update === "function" ? update(before) : update;
+    if (!restoringImage.current) for (const [id, document] of Object.entries(next)) {
+      const old = before[id];
+      if (old && JSON.stringify(old.steps) !== JSON.stringify(document.steps)) {
+        if (!imageHistories.current.has(id)) imageHistories.current.set(id, new CanvasHistory());
+        imageHistories.current.get(id)!.commit(restoreImageInspector(old), document);
+      }
+    }
+    documentsRef.current = next; setDocumentsRaw(next);
+  }
   const imageCommandQueue = useRef(Promise.resolve());
   const [canvasLinks, setCanvasLinks] = useState<Record<string, string>>({});
   const [canvasStates, setCanvasStates] = useState<
@@ -205,8 +230,10 @@ export function Workspace() {
   const [activePanel, setActivePanelState] = useState<DockPanelId>(
     `canvas:${initialWindows[0].id}`
   );
-  const [activeCanvasId, setActiveCanvasId] = useState(initialWindows[0].id);
-  const [assets, setAssets] = useState<Asset[]>([]);
+  const activeCanvasId = useSyncExternalStore(CanvasMgr.selected.subscribe, CanvasMgr.selected.get);
+  const setActiveCanvasId = (id: string) => CanvasMgr.select(id);
+  const assets = useSyncExternalStore(HierarchyMgr.assets.subscribe, HierarchyMgr.assets.get);
+  const setAssets = HierarchyMgr.assets.set;
   assets.forEach((asset) => resourceAssets.current.set(asset.id, asset));
   useEffect(() => {
     const disposers = windows
@@ -287,7 +314,10 @@ export function Workspace() {
     return () => { window.removeEventListener("assetflow:open-system-panel", open); window.removeEventListener("assetflow:system-notice", notice); };
   }, []);
   useEffect(() => {
-    void refreshModules().catch((error) => setNotice(String(error)));
+    void refreshModules().then(() => {
+      const mode = getPanelTypes()[0]?.id;
+      if (mode) setWindows(old => old.map(canvas => canvas.mode ? canvas : { ...canvas, mode }));
+    }).catch((error) => setNotice(String(error)));
   }, []);
   useEffect(() => {
     const settings = (event: Event) => {
@@ -302,7 +332,7 @@ export function Workspace() {
       const { windowId, command } = (event as CustomEvent).detail;
       const canvas = windows.find(item => item.id === windowId);
       if (canvas?.mode !== "image" || !configFor("image")?.tools.some(tool => tool.command === command)) return;
-      const execute = async () => {
+      const activate = async () => {
         const processor = command.slice(6);
         if (!resolveCanvas(windowId, canvasLinks, panelAssets, documentsRef.current).assetId) { setNotice("请先选择输入图片"); return; }
         const definitions = await window.assetFlow.definitions();
@@ -320,10 +350,14 @@ export function Workspace() {
         } else current = finishImageEdit(current, false);
         const draft = { id: crypto.randomUUID(), processor, enabled: true, params: Object.fromEntries(definition.fields.map(field => [field.key, field.default])) };
         const next: ImageDocument = { ...current, editing: { draft, prefix: current.steps, fresh: true, initialParams: ["crop", "resize"].includes(processor) ? undefined : structuredClone(draft.params) } };
-        documentsRef.current = { ...documentsRef.current, [windowId]: next };
         setDocuments(old => ({ ...old, [windowId]: next }));
         setActiveCanvasId(windowId);
         acceptCanvasCommand(windowId, command);
+      };
+      const execute = async () => {
+        const node = imageToolNode(windowId, command, configFor("image")?.tools.find(tool => tool.command === command)?.name);
+        node.select = activate;
+        await node.trigger();
       };
       imageCommandQueue.current = imageCommandQueue.current.then(execute).catch(error => setNotice(String(error)));
     };
@@ -407,14 +441,55 @@ export function Workspace() {
         setNotice("结果预览为只读，请选中编辑面板保存");
         return;
       }
-      void action(() => savePanel(activeCanvasId));
+      void action(() => CanvasMgr.save(activeCanvasId));
     };
     window.addEventListener("keydown", keydown);
     return () => window.removeEventListener("keydown", keydown);
   });
 
+  useEffect(() => {
+    CanvasMgr.reconcile();
+    for (const id of imageHistories.current.keys()) if (!windows.some(canvas => canvas.id === id && canvas.mode === "image")) {
+      imageHistories.current.delete(id); releaseImageNodes(id);
+    }
+    for (const canvas of windows) CanvasMgr.bind(canvas.id, {
+      save: async () => {
+        if (canvas.readOnly || !canvas.mode) return true;
+        if (canvas.mode === "image" && !latestPanels.current[canvas.id]) return true;
+        return savePanel(canvas.id);
+      },
+      undo: async () => {
+        if (canvas.mode !== "image") {
+          await requestCanvasOperation(canvas.id, "undo");
+          return;
+        }
+        const current = documentsRef.current[canvas.id] ?? emptyDocument();
+        const previous = current.editing && imageDraftChanged(current)
+          ? restoreImageInspector(current)
+          : imageHistories.current.get(canvas.id)?.undo();
+        if (!previous) return;
+        restoringImage.current = true;
+        try {
+          setDocuments(old => ({ ...old, [canvas.id]: previous }));
+          window.dispatchEvent(new CustomEvent("assetflow:tool-selected", { detail: {
+            windowId: canvas.id, tool: previous.editing?.draft.processor ? `image.${previous.editing.draft.processor}` : undefined,
+          } }));
+        }
+        finally { restoringImage.current = false; }
+      },
+      clear: async () => {
+        if (canvas.mode === "image") setDocuments(old => ({ ...old, [canvas.id]: emptyDocument() }));
+        else await requestCanvasOperation(canvas.id, "clear");
+      },
+    });
+
+  });
+
   async function savePanel(windowId: string): Promise<boolean> {
     const canvas = windows.find((w) => w.id === windowId);
+    if (canvas && hasNativeCanvas(canvas.mode)) {
+      return saveNativeCanvas(canvas.mode, windowId, () => prepareCanvasSave(windowId));
+    }
     const epoch = panelEpoch.current[windowId] ?? 0;
     if (canvas && canvas.mode !== "image" && !canvas.readOnly) {
       const refs = canvasResources[windowId] ?? [];
@@ -471,7 +546,6 @@ export function Workspace() {
       if ((panelEpoch.current[windowId] ?? 0) !== epoch || latestPanels.current[windowId]?.sourcePath !== asset.path) return true;
       panelRevisions.current[windowId] = updated.revision ?? 0;
       if (capturedDocument && documentsRef.current[windowId] === originalDocument) {
-        documentsRef.current = { ...documentsRef.current, [windowId]: capturedDocument };
         setDocuments(old => ({ ...old, [windowId]: capturedDocument! }));
       }
       setSavedPanels((old) => ({ ...old, [windowId]: captured }));
@@ -607,8 +681,10 @@ export function Workspace() {
     });
     setPanelAssets((old) => ({ ...old, [windowId]: asset.id }));
     const document = { ...emptyDocument(), steps: structuredClone(asset.savedSteps ?? []) };
-    documentsRef.current = { ...documentsRef.current, [windowId]: document };
+    imageHistories.current.delete(windowId);
+    restoringImage.current = true;
     setDocuments(old => ({ ...old, [windowId]: document }));
+    restoringImage.current = false;
     const mode = windows.find(item => item.id === windowId)?.mode ?? "image";
     setSavedPanels(old => ({ ...old, [windowId]: { version: 1, sourcePath: asset.path, mode, steps: document.steps, canvasProperties: getCanvasPreferences(mode, windowId).properties } }));
     setHistoryPanels((old) => ({ ...old, [windowId]: false }));
@@ -692,11 +768,20 @@ export function Workspace() {
     }
     if (
       item.mode !== "image" &&
+      !hasNativeCanvas(item.mode) &&
       extensionDirty[item.id] &&
       !window.confirm("替换资源前，请确认已保存当前画布文档。继续打开？")
     )
       return;
     await openCanvasResources(item.id, resources.map(toResourceRef));
+    // A user-opened resource replaces the input connection; upstream synchronization
+    // uses the runtime input channel and never goes through this entry point.
+    setCanvasLinks(old => {
+      if (!old[item.id]) return old;
+      const next = { ...old };
+      delete next[item.id];
+      return next;
+    });
     setNotice(
       `已打开 ${resources.map((resource) => resource.name).join("、")}`
     );
@@ -720,7 +805,7 @@ export function Workspace() {
     while (windows.some((windowItem) => windowItem.title === `面板 ${ordinal}`))
       ordinal++;
     const item = {
-      ...createWindow(ordinal - 1, source?.mode ?? "image"),
+      ...createWindow(ordinal - 1, source?.mode ?? getPanelTypes()[0]?.id ?? ""),
       readOnly,
     };
     if (properties) setCanvasPreferences(item.mode, { properties }, item.id);
@@ -748,13 +833,6 @@ export function Workspace() {
   function closePanel(panel: DockPanelId) {
     if (panel.startsWith("extension:")) { setDock(old => removeDockPanel(old, panel) ?? createDockNode("inspector")); if (activePanel === panel) setActivePanelState("inspector"); return; }
     if (!panel.startsWith("canvas:")) return;
-    if (
-      !windows.find((w) => w.id === panel.slice(7))?.readOnly &&
-      windows.filter((w) => !w.readOnly).length <= 1
-    ) {
-      setNotice("至少保留一个编辑画布");
-      return;
-    }
     const id = panel.slice(7);
     if (
       extensionDirty[id] &&
@@ -779,13 +857,13 @@ export function Workspace() {
           item.startsWith("canvas:") &&
           !nextWindows.find((w) => w.id === item.slice(7))?.readOnly
       );
-      const nextCanvas = nextPanel?.slice(7) ?? nextWindows[0].id;
+      const nextCanvas = nextPanel?.slice(7) ?? nextWindows[0]?.id ?? "";
       const groupId = nextPanel ? findActiveGroup(nextDock, nextPanel) : null;
       setDock(
         groupId ? activateDockPanel(nextDock, groupId, nextPanel!) : nextDock
       );
       setActiveCanvasId(nextCanvas);
-      setActivePanelState(`canvas:${nextCanvas}`);
+      setActivePanelState(nextCanvas ? `canvas:${nextCanvas}` : "inspector");
     } else setDock(nextDock);
     setMenu(null);
   }
@@ -878,27 +956,12 @@ export function Workspace() {
           (item) => !old.some((entry) => entry.id === item.id)
         ),
       ]);
-      const importedAssets = new Map(
-        [...assets, ...imported].map((item) => [
-          normalizeAssetPath(item.path),
-          item,
-        ])
-      );
-      const droppedPaths = paths.map(normalizeAssetPath);
-      const ids = [...importedAssets.values()]
-        .filter((item) =>
-          droppedPaths.some((path) => {
-            const assetPath = normalizeAssetPath(item.path);
-            return assetPath === path || assetPath.startsWith(`${path}/`);
-          })
-        )
-        .map((item) => item.id);
       setHierarchies((old) =>
         old.map((h) =>
           h.id === hierarchyId
             ? includeAssets(
                 h,
-                [...importedAssets.values()].filter((a) => ids.includes(a.id)),
+                imported,
                 target,
                 true
               )
@@ -1010,120 +1073,49 @@ export function Workspace() {
       );
     }
     if (panel === "inspector") {
-      const connections = activeWindow && !activeWindow.readOnly && (
-        <>
-          {" "}
-          <CanvasConnections
-            input={
-              canvasLinks[activeCanvasId]
-                ? `canvas:${canvasLinks[activeCanvasId]}`
-                : panelAssets[activeCanvasId]
-                ? `asset:${panelAssets[activeCanvasId]}`
-                : ""
-            }
-            inputs={[
-              ...assets
-                .filter((asset) => acceptsAsset(activeWindow.mode, asset))
-                .map((asset) => ({
-                  value: `asset:${asset.id}`,
-                  label: `资源 · ${asset.name}`,
-                })),
-              ...windows
-                .filter(
-                  (item) =>
-                    !item.readOnly &&
-                    item.mode === activeWindow.mode &&
-                    item.id !== activeCanvasId &&
-                    canLinkCanvas(canvasLinks, item.id, activeCanvasId)
-                )
-                .map((item) => ({
-                  value: `canvas:${item.id}`,
-                  label: `画布 · ${item.title}`,
-                })),
-            ]}
-            outputs={Object.keys(canvasLinks).filter(
-              (id) => canvasLinks[id] === activeCanvasId
-            )}
-            targets={windows
-              .filter(
-                (item) =>
-                  !item.readOnly &&
-                  item.mode === activeWindow.mode &&
-                  item.id !== activeCanvasId &&
-                  canLinkCanvas(canvasLinks, activeCanvasId, item.id)
-              )
-              .map((item) => ({ value: item.id, label: item.title }))}
-            onInput={setCanvasInput}
-            onOutputs={(ids) => {
-              setCanvasLinks((old) =>
-                Object.fromEntries(
-                  Object.entries(old).filter(
-                    ([target, source]) =>
-                      source !== activeCanvasId || ids.includes(target)
-                  )
-                )
-              );
-              ids.forEach((id) => linkCanvas(activeCanvasId, id));
-            }}
-            onDrop={(event) => {
-              const panel = event.dataTransfer.getData(
-                "application/assetflow-dock"
-              );
-              if (panel.startsWith("canvas:")) {
-                event.preventDefault();
-                event.stopPropagation();
-                setCanvasInput(panel);
-              } else void dropOnPanel(event, activeWindow);
-            }}
-          />{" "}
-          <CanvasBaseProperties
-            type={activeWindow.mode}
-            windowId={activeCanvasId}
-          />{" "}
-        </>
-      );
-      if (activeWindow && activeWindow.mode !== "image")
-        return (
-          <ExtensionInspector
-            key={`${activeCanvasId}:${activeWindow.mode}`}
-            windowId={activeCanvasId}
-            type={activeWindow.mode}
-            connections={connections}
-          />
-        );
-      return (
-        <Inspector
-          connections={connections}
+      const connections: CanvasConnectionsProps | undefined = activeWindow && !activeWindow.readOnly ? {
+        input: canvasLinks[activeCanvasId]
+          ? `canvas:${canvasLinks[activeCanvasId]}`
+          : panelAssets[activeCanvasId] ? `asset:${panelAssets[activeCanvasId]}` : "",
+        inputs: [
+          ...assets.filter(asset => acceptsAsset(activeWindow.mode, asset)).map(asset => ({ value: `asset:${asset.id}`, label: `资源 · ${asset.name}` })),
+          ...windows.filter(item => !item.readOnly && item.mode === activeWindow.mode && item.id !== activeCanvasId && canLinkCanvas(canvasLinks, item.id, activeCanvasId)).map(item => ({ value: `canvas:${item.id}`, label: `画布 · ${item.title}` })),
+        ],
+        outputs: Object.keys(canvasLinks).filter(id => canvasLinks[id] === activeCanvasId),
+        targets: windows.filter(item => !item.readOnly && item.mode === activeWindow.mode && item.id !== activeCanvasId && canLinkCanvas(canvasLinks, activeCanvasId, item.id)).map(item => ({ value: item.id, label: item.title })),
+        onInput: setCanvasInput,
+        onOutputs: ids => {
+          setCanvasLinks(old => Object.fromEntries(Object.entries(old).filter(([target, source]) => source !== activeCanvasId || ids.includes(target))));
+          ids.forEach(id => linkCanvas(activeCanvasId, id));
+        },
+        onDrop: event => {
+          const source = event.dataTransfer.getData("application/assetflow-dock");
+          if (source.startsWith("canvas:")) {
+            event.preventDefault(); event.stopPropagation(); setCanvasInput(source);
+          } else void dropOnPanel(event, activeWindow);
+        },
+      } : undefined;
+      return <CanvasInspector
+        windowId={activeCanvasId}
+        type={activeWindow?.mode ?? ""}
+        title={activeWindow ? `${activeWindow.title} · ${configFor(activeWindow.mode)?.name ?? activeWindow.mode}` : "未选定面板"}
+        connections={connections}
+      >
+        {activeWindow && activeWindow.mode !== "image" ? <ExtensionInspector
+          key={`${activeCanvasId}:${activeWindow.mode}`}
+          windowId={activeCanvasId}
+          type={activeWindow.mode}
+        /> : <Inspector
+          windowId={activeCanvasId}
           saved={savedPanels[activeCanvasId]}
           showHistory={!!historyPanels[activeCanvasId]}
-          onShowHistory={() =>
-            setHistoryPanels((old) => ({
-              ...old,
-              [activeCanvasId]: !old[activeCanvasId],
-            }))
-          }
-          title={
-            activeWindow
-              ? `${activeWindow.title} · ${activeWindow.mode}`
-              : "未选定面板"
-          }
-          document={
-            activeWindow?.mode === "image" && !activeWindow.readOnly
-              ? documents[activeCanvasId] ?? EMPTY_DOCUMENT
-              : undefined
-          }
-          setDocument={(update) => {
-            if (activeCanvasId)
-              setDocuments((old) => ({
-                ...old,
-                [activeCanvasId]:
-                  typeof update === "function"
-                    ? update(old[activeCanvasId] ?? emptyDocument())
-                    : update,
-              }));
+          onShowHistory={() => setHistoryPanels(old => ({ ...old, [activeCanvasId]: !old[activeCanvasId] }))}
+          document={activeWindow?.mode === "image" && !activeWindow.readOnly ? documents[activeCanvasId] ?? EMPTY_DOCUMENT : undefined}
+          setDocument={update => {
+            if (activeCanvasId) setDocuments(old => ({ ...old, [activeCanvasId]: typeof update === "function" ? update(old[activeCanvasId] ?? emptyDocument()) : update }));
           }}
-        />
-      );
+        />}
+      </CanvasInspector>;
     }
     const item = windows.find((entry) => `canvas:${entry.id}` === panel);
     if (!item) return null;
@@ -1143,8 +1135,10 @@ export function Workspace() {
         />
       );
     return (
-      <div
-        className="generic-panel"
+      <CanvasFrame
+        windowId={item.id}
+        type={item.mode}
+        isActive={activeCanvasId === item.id}
         onDragOver={(event) => {
           if (event.dataTransfer.types.includes("application/assetflow-dock"))
             return;
@@ -1160,11 +1154,6 @@ export function Workspace() {
           if (allowed) event.preventDefault();
         }}
         onDrop={(event) => void dropOnPanel(event, item)}
-      >
-        <PanelToolbar
-          windowId={item.id}
-          isActive={activeCanvasId === item.id}
-          type={item.mode}
           onTypeChange={(mode) => {
             if (
               mode !== item.mode &&
@@ -1198,10 +1187,30 @@ export function Workspace() {
               old.map((w) => (w.id === item.id ? { ...w, mode } : w))
             );
           }}
-        />
-        <div className="canvas-surface">
-          <CanvasToolbox key={item.mode} windowId={item.id} type={item.mode} />
-          {item.mode !== "image" ? (
+      >
+          {!item.readOnly && item.mode && item.mode !== "image" && <CanvasOperationRuntime windowId={item.id} type={item.mode} />}
+          {hasNativeCanvas(item.mode) && configFor(item.mode) ? (
+            <NativeCanvas
+              type={item.mode}
+              config={configFor(item.mode)!}
+              key={item.id}
+              windowId={item.id}
+              resources={canvasResources[item.id] ?? EMPTY_RESOURCES}
+              input={canvasLinks[item.id] ? extensionOutputs[canvasLinks[item.id]] : null}
+              onOutput={value => setExtensionOutputs(old => ({ ...old, [item.id]: value }))}
+              onResources={resources => {
+                invalidateCanvasBinding(item.id);
+                setCanvasResources(old => ({ ...old, [item.id]: resources }));
+              }}
+              onNotice={setNotice}
+              onActivate={() => { setActiveCanvasId(item.id); setActivePanelState(`canvas:${item.id}`); }}
+              onState={() => {
+                extensionVersions.current[item.id] = (extensionVersions.current[item.id] ?? 0) + 1;
+                setExtensionDirty(old => ({ ...old, [item.id]: true }));
+              }}
+              onExported={() => setExtensionDirty(old => ({ ...old, [item.id]: false }))}
+            />
+          ) : item.mode !== "image" ? (
             <div className="empty">
               {configFor(item.mode) ? (
                 <ExtensionCanvas
@@ -1252,7 +1261,7 @@ export function Workspace() {
                 />
               ) : (
                 <p>
-                  {item.mode} 编辑器未安装或尚未启用，资源可在层级中整理和导出
+                  {item.mode ? `${item.mode} 编辑器未安装或尚未启用` : "暂无画布模块，请在包管理器中添加 config.json"}，资源可在层级中整理和导出
                 </p>
               )}
             </div>
@@ -1302,8 +1311,7 @@ export function Workspace() {
               }
             />
           )}
-        </div>
-      </div>
+      </CanvasFrame>
     );
   }
 
@@ -1354,7 +1362,7 @@ export function Workspace() {
                           await openAssetsOnCanvas(activeWindow, resources);
                       }),
 "system.file.saveImage": openImageOutput,
-"system.file.savePanel": () => void action(() => savePanel(activeCanvasId)),
+"system.file.saveAll": () => void action(() => CanvasMgr.saveAll()),
 "system.file.openDocument": () =>
                       void action(async () => {
                         const saved =
@@ -1617,7 +1625,4 @@ function findActiveGroup(node: DockNode, panel: DockPanelId): string | null {
   return (
     findActiveGroup(node.first, panel) ?? findActiveGroup(node.second, panel)
   );
-}
-function normalizeAssetPath(path: string): string {
-  return path.replace(/\\/g, "/").replace(/\/+$/, "").toLocaleLowerCase();
 }

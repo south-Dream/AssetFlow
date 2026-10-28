@@ -1,5 +1,5 @@
 import type { SystemExtensionConfig } from "../../../extensions/sdk/contracts";
-import { validateNavigation, composeNavigation, validateNavigationLayout } from "../navigation";
+import { validateNavigation, composeNavigation, rejectNavigationLayout } from "../navigation";
 import { validateCanvasConfig } from "../canvas/config";
 import builtin from "../../../extensions/builtin/navigation.json";
 export const builtinNavigation = builtin;
@@ -8,8 +8,8 @@ export function validateSystemConfig(input: any): SystemExtensionConfig {
   const scoped = (id: any) => typeof id === "string" && id.startsWith(input.id + ".") && /^[a-zA-Z0-9_.-]+$/.test(id);
   if (typeof input.name !== "string" || !input.name.trim() || input.name.length > 200 || (input.desc !== undefined && typeof input.desc !== "string")) throw Error("无效扩展名称或描述");
   const menus = validateNavigation(input.menus, input.id);
-  const composed = composeNavigation(builtin, menus);
-  const navigation = validateNavigationLayout(input.navigation, composed.filter(item => item.id.startsWith(input.id + ".")).map(item => item.id));
+  composeNavigation(builtin, menus);
+  rejectNavigationLayout(input.navigation);
   const ids = new Set<string>();
   const list = (items: any) => { if (items === undefined) return []; if (!Array.isArray(items) || items.length > 100) throw Error("扩展列表无效"); return items; };
   const panels = list(input.panels).map((panel: any) => {
@@ -26,5 +26,5 @@ export function validateSystemConfig(input: any): SystemExtensionConfig {
   const needsScript = panels.some((p: any) => p.renderer === "custom") || JSON.stringify(menus).includes('"command":');
   if (needsScript && !input.entry) throw Error("命令和自定义面板需要 entry");
   if (input.entry !== undefined && (typeof input.entry !== "string" || input.entry.startsWith("/") || !/^(?:\.\/)?[a-zA-Z0-9_/-]+\.js$/.test(input.entry) || input.entry.split("/").some((p: string) => p === ".." || !p))) throw Error("entry 必须为模块内相对 JS 路径");
-  return { id: input.id, name: input.name, desc: input.desc ?? "", schemaVersion: 1, sdkVersion: 1, entry: input.entry, menus, panels, settingsPages, navigation };
+  return { id: input.id, name: input.name, desc: input.desc ?? "", schemaVersion: 1, sdkVersion: 1, entry: input.entry, menus, panels, settingsPages };
 }

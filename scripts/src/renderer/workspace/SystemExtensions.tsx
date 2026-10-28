@@ -6,6 +6,7 @@ import { composeNavigation, SystemNavigationContainer, assembleSystemNavigation 
 import { builtinNavigation } from "../../extensions/system/config";
 import { type MenuEntry } from "./MainMenu";
 import { NavigationContainer } from "./NavigationContainer";
+import { ActionNavNode } from "../../../extensions/sdk/nodes";
 
 let records: SystemExtensionRecord[] = [];
 let initialized: Promise<void> | undefined;
@@ -25,7 +26,10 @@ export function openExtensionPanel(panel: string, host: PanelHost = "dialog") {
   window.dispatchEvent(new CustomEvent("assetflow:open-system-panel", { detail: { panel, host } }));
 }
 export function navigationEntries(items: NavigationItem[], execute: (command: string) => void): MenuEntry[] {
-  return items.map(item => ({ id: item.id, label: item.name, ...(item.children ? { children: navigationEntries(item.children, execute) } : { action: () => item.action ? openExtensionPanel(item.action.panel, item.action.host) : execute(item.command!) }) }));
+  return items.map(item => {
+    const node = new ActionNavNode(item.name, () => item.action ? openExtensionPanel(item.action.panel, item.action.host) : execute(item.command!));
+    return { id: item.id, label: node.name, ...(item.children ? { children: navigationEntries(item.children, execute) } : { action: () => node.trigger() }) };
+  });
 }
 export function extendMenuEntries(base: MenuEntry[], additions: NavigationItem[], execute: (command: string) => void): MenuEntry[] {
   const handlers = new Map<string, MenuEntry>();
@@ -49,7 +53,7 @@ export function ApplicationNavigation({ commands: systemCommands, canvases }: { 
   const aggregate = assembleSystemNavigation(base, installed.filter(record => !record.error && record.config).map(record => record.config!));
   const diagnostic = aggregate.errors.join("；");
   useEffect(() => { if (diagnostic) report(diagnostic); }, [diagnostic]);
-  return <NavigationContainer container={new SystemNavigationContainer()} layout={aggregate.layout} entries={navigationEntries(aggregate.nodes, command => {
+  return <NavigationContainer container={new SystemNavigationContainer()} entries={navigationEntries(aggregate.nodes, command => {
     const builtin = handlers.get(command); if (builtin) { builtin(); return; }
     const owner = installed.find(record => record.config && command.startsWith(record.config.id + "."))?.config?.id;
     const run = owner && commands.get(owner); if (run) run(command); else report("扩展尚未就绪: " + command);

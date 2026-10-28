@@ -67,6 +67,7 @@ export function registerCanvasDocuments(
       owner: event.sender.id,
       grants: new Set(),
       html: sandboxDocument(payload.source, {
+        config: payload.config,
         windowId: boot.windowId,
         settings: validateValues(payload.config.settings, boot.settings),
         state: boot.state,
@@ -75,6 +76,7 @@ export function registerCanvasDocuments(
         previewTarget: boot.previewTarget === "linked" ? "linked" : "self",
         resources: payload.config.resources ?? [],
         drawers: [
+          ...(payload.config.bindings ? [`${payload.config.id}.__canvas`, ...payload.config.tools.filter(tool => tool.kind !== "command").map(tool => `${tool.id}.__tool`)] : []),
           ...new Set(
             inspectorFields.flatMap((field) =>
               field.renderer ? [field.renderer] : []
@@ -144,7 +146,8 @@ export function registerCanvasModules(
   assets: Map<string, Asset>
 ) {
   const manager = new CanvasModuleManager(
-    path.join(app.getPath("userData"), "canvas-modules.json")
+    path.join(app.getPath("userData"), "canvas-modules.json"),
+    ["image", "atlas"].map(id => path.join(app.isPackaged ? path.dirname(app.getPath("exe")) : app.getAppPath(), "scripts/extensions/canvas_modules", id, "config.json"))
   );
   const isInUse = registerCanvasDocuments(manager, assets);
   const validateDocument = (document: any) => {

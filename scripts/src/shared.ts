@@ -36,6 +36,14 @@ export type PanelSnapshot = {
   canvasProperties?: import("./extensions/canvas/contracts").CanvasValues;
 };
 export interface Bridge {
+  atlas: {
+    read(id: string): Promise<ArrayBuffer>;
+    export(png: ArrayBuffer, metadata: string, name: string): Promise<boolean>;
+  };
+  importRules: {
+    get(): Promise<import("./shared/filePatterns").ImportRules>;
+    save(rules: import("./shared/filePatterns").ImportRules): Promise<void>;
+  };
   workspace?: {
     saveBytes(id: string, data: ArrayBuffer, name: string | undefined, revision: number): Promise<Asset>;
     saveImage(id: string, steps: Step[], revision: number): Promise<Asset>;

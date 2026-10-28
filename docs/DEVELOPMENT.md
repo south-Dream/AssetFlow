@@ -1,6 +1,6 @@
 # 开发说明
 
-2026-10-27 新增画布扩展层：`scripts/src/extensions/canvas/` 为 SDK 与配置校验，`scripts/src/extensions/canvas/manager.ts` 管理关联和快照，`scripts/src/extensions/canvas/host.ts` 提供受控 IPC 与隔离文档，`scripts/extensions/canvas_moudles/` 保存模块声明、示例和 SDK 入口。新模块开发请优先阅读 [画布模块规范](../extensions/canvas_moudles/docs/CANVAS_MODULE_SPEC.md)；以下为原图片处理和模型框架说明，不能将原处理器注册等同于外部画布模块安装。
+2026-10-27 新增画布扩展层：`scripts/src/extensions/canvas/` 为 SDK 与配置校验，`scripts/src/extensions/canvas/manager.ts` 管理关联和快照，`scripts/src/extensions/canvas/host.ts` 提供受控 IPC 与隔离文档，`scripts/extensions/canvas_modules/` 保存模块声明、示例和 SDK 入口。新模块开发请优先阅读 [画布模块规范](../extensions/canvas_modules/docs/CANVAS_MODULE_SPEC.md)；以下为原图片处理和模型框架说明，不能将原处理器注册等同于外部画布模块安装。
 
 ## 模块边界
 
@@ -9,8 +9,8 @@
 - `scripts/src/renderer/`：React 工作台和 Schema 参数编辑器。
 - `scripts/src/core/framework/`：与媒体引擎无关的处理器、端口、模块、流程及模型契约，注册与运行时校验。
 - `scripts/src/core/registry.ts`：可独立加载的图片处理器目录，兼容现有步骤校验入口，不加载 Sharp。
-- `scripts/extensions/canvas_moudles/image/modules/processing/processors/`：图片参数定义、七类实现与图片模块适配器。
-- `scripts/extensions/canvas_moudles/image/modules/processing/process.ts`：严格按步骤执行，统一输出编码；预览和导出共用此入口。
+- `scripts/extensions/canvas_modules/image/modules/processing/processors/`：图片参数定义、七类实现与图片模块适配器。
+- `scripts/extensions/canvas_modules/image/modules/processing/process.ts`：严格按步骤执行，统一输出编码；预览和导出共用此入口。
 - `scripts/src/services/output.ts`：独占写入、重名避让、ZIP 和取消清理。
 - `scripts/src/shared.ts`：跨进程的数据接口。
 
@@ -41,9 +41,9 @@
 
 ## 配置驱动的模型
 
-统一推理执行层已增加到 `framework/inference.ts`：按能力与版本匹配模型，校验输入输出端口，串行调度任务，提供取消与进度入口，并在成功、失败、取消后释放会话。第三方实现统一位于 `scripts/extensions/canvas_moudles/<画布>/modules/<模块>/<提供方>/`，通用层不导入第三方实现。
+统一推理执行层已增加到 `framework/inference.ts`：按能力与版本匹配模型，校验输入输出端口，串行调度任务，提供取消与进度入口，并在成功、失败、取消后释放会话。第三方实现统一位于 `scripts/extensions/canvas_modules/<画布>/modules/<模块>/<提供方>/`，通用层不导入第三方实现。
 
-首个接入包为 `scripts/extensions/canvas_moudles/image/modules/background-removal/rembg/`，由模块入口 `createBackgroundRemoval()` 组合。安装、调用和扩展说明见 [rembg 接入说明](../extensions/canvas_moudles/image/modules/background-removal/rembg/README.md)。已通过模块内 `processor.ts` 接入现有图片处理步骤，预览与导出共用该入口。构建复制桥接资源，打包放在 ASAR 外；Python 环境和模型权重仍需安装。
+首个接入包为 `scripts/extensions/canvas_modules/image/modules/background-removal/rembg/`，由模块入口 `createBackgroundRemoval()` 组合。安装、调用和扩展说明见 [rembg 接入说明](../extensions/canvas_modules/image/modules/background-removal/rembg/README.md)。已通过模块内 `processor.ts` 接入现有图片处理步骤，预览与导出共用该入口。构建复制桥接资源，打包放在 ASAR 外；Python 环境和模型权重仍需安装。
 
 `framework/models.ts` 提供 `ModelDefinition`、`ModelAdapter` 与 `ModelRegistry`。模型配置包含任务、适配器 ID、模型版本、文件路径和校验和、参数 Schema 与默认参数。注册适配器代码和模型配置后，`available(task)` 按任务及适配器兼容性筛选，`resolve(id, task, params)` 返回适配器和经过校验的参数。
 

@@ -18,6 +18,10 @@ const hosts = new Map<string, DrawRequest>(),
   listeners = new Set<() => void>();
 let revision = 0;
 export const drawerRevision = () => revision;
+export function invalidateDrawers() {
+  revision++;
+  listeners.forEach(fn => fn());
+}
 export const subscribeDrawers = (fn: () => void) => {
   listeners.add(fn);
   return () => {

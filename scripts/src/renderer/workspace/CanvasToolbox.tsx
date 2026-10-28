@@ -38,13 +38,15 @@ export function CanvasToolbox({
       const detail = (event as CustomEvent).detail;
       if (detail.windowId === windowId) setSelected(detail.command);
     };
+    const restore = (event: Event) => { const detail = (event as CustomEvent).detail; if (detail.windowId === windowId) setSelected(config?.tools.find(tool => tool.id === detail.tool)?.command ?? ""); };
     window.addEventListener("assetflow:command", activate);
-    return () => window.removeEventListener("assetflow:command", activate);
-  }, [windowId]);
+    window.addEventListener("assetflow:tool-selected", restore);
+    return () => { window.removeEventListener("assetflow:command", activate); window.removeEventListener("assetflow:tool-selected", restore); };
+  }, [windowId, config]);
   if (!preferences.visible || !config?.tools.length) return null;
   const tools = orderTools(config.tools, preferences.order).filter(
     (tool) =>
-      !preferences.hidden.includes(tool.id) &&
+      tool.kind !== "command" && !preferences.hidden.includes(tool.id) &&
       (tool.toolbar !== false || preferences.shown.includes(tool.id))
   );
   if (!tools.length) return null;

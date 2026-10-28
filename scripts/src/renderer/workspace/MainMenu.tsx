@@ -7,7 +7,6 @@ export type MenuEntry = {
   children?: MenuEntry[];
   checked?: boolean;
 };
-export type NavigationRegionRenderer = (region: string, entries: MenuEntry[], draw: (items: MenuEntry[]) => React.ReactNode) => React.ReactNode;
 
 function NavigationButton({ item, expanded, onClick }: { item: MenuEntry; expanded: boolean; onClick: () => void }) {
   return <button
@@ -23,7 +22,7 @@ function NavigationButton({ item, expanded, onClick }: { item: MenuEntry; expand
   ><span className="navigation-label">{item.label}</span></button>;
 }
 
-export function MainMenu({ entries, regions, regionOrder, containerId, renderRegion }: { entries: MenuEntry[]; regions?: Record<string, string[]>; regionOrder?: string[]; containerId?: string; renderRegion?: NavigationRegionRenderer }) {
+export function MainMenu({ entries, containerId }: { entries: MenuEntry[]; containerId?: string }) {
   const root = useRef<HTMLElement>(null);
   const [opened, setOpened] = useState<Set<string>>(() => new Set());
   useEffect(() => {
@@ -55,7 +54,9 @@ export function MainMenu({ entries, regions, regionOrder, containerId, renderReg
     });
     position();
     window.addEventListener("resize", position);
-    return () => window.removeEventListener("resize", position);
+    root.current?.addEventListener("scroll", position);
+    const element = root.current;
+    return () => { window.removeEventListener("resize", position); element?.removeEventListener("scroll", position); };
   }, [opened, entries]);
   const render = (items: MenuEntry[], ancestors: string[] = []): React.ReactNode => items.map((item, index) => {
     const key = item.id ?? ancestors.join(".") + "." + index;
@@ -74,9 +75,6 @@ export function MainMenu({ entries, regions, regionOrder, containerId, renderReg
     </div>;
   });
   return <nav ref={root} className="main-menu navigation-container" aria-label="主菜单" data-navigation-container={containerId}>
-    {regions ? (regionOrder ?? Object.keys(regions)).map(region => {
-      const items = (regions[region] ?? []).map(id => entries.find(item => item.id === id)).filter((item): item is MenuEntry => !!item);
-      return <div key={region} className={"navigation-region navigation-region-" + region} data-nav-region={region}>{renderRegion ? renderRegion(region, items, render) : render(items)}</div>;
-    }) : render(entries)}
+    {render(entries)}
   </nav>;
 }

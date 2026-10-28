@@ -17,7 +17,7 @@
 | §2.1 桌面主界面 | 已有单个 BrowserWindow、图片工作台、主题切换、侧栏调整；`scripts/src/main/index.ts`、`scripts/src/renderer/main.tsx` | 新增首页、模块导航、设置入口、统一通知与诊断；主题等偏好持久化 |
 | §2.1 文件与临时资源 | 已有文件/目录选择、递归导入、文件拖放、资产 Map；ZIP 和 rembg 各自管理临时目录 | 抽出通用文件服务和临时资源服务，避免各模块自行管理生命周期 |
 | §2.3 Module SDK | 已有 AssetModule、ProcessorRegistry、输入输出端口、处理器版本与参数校验；`scripts/src/core/framework/` | 补齐模块 Manifest、Core/API 兼容范围、依赖、能力、权限、安装与启停生命周期；现有处理器版本不等于模块兼容机制 |
-| §2.2 PkgMgr | 未实现；处理器由源码静态注册，`scripts/extensions/canvas_moudles/image/modules/processing/processors/index.ts` | 新增模块列表、详情、安装/卸载、启用/禁用、本地 ZIP、官方静态仓库、下载进度、包校验、临时安装切换、运行时依赖检查与复用 |
+| §2.2 PkgMgr | 未实现；处理器由源码静态注册，`scripts/extensions/canvas_modules/image/modules/processing/processors/index.ts` | 新增模块列表、详情、安装/卸载、启用/禁用、本地 ZIP、官方静态仓库、下载进度、包校验、临时安装切换、运行时依赖检查与复用 |
 | §2.3 官方可信模块 | 已有固定 IPC、contextIsolation、sandbox、禁用 Node 集成，具备基础隔离 | 建立官方模块信任规则、权限校验和 SDK 边界。rembg 的模型清单不是通用模块 Manifest |
 | §3.1 多标签与多个工具实例 | 未实现；UI 的“原始图片/处理结果”只是同一实例的预览切换 | V0.1 新增工具实例 ID、独立资源/步骤/预览状态、标签切换与关闭；预览 Worker 也需按实例区分 |
 | §3.2 分屏、停靠、布局保存 | 未实现；侧栏调宽不能算停靠布局 | V0.2 引入布局模型，保存/恢复面板状态 |
@@ -73,7 +73,7 @@
 | §5.9 命名 | 前后缀、序号位数、普通字符串替换、name/index/width/height 模板、非法名称检查 | 补大小写/分隔符统一、正则模式、按目录/标签/用途映射、整批最终名称与冲突预览 |
 | §5.10 流水线 | 步骤排序、启用/禁用、参数编辑、版本化 JSON 保存/读取、按顺序执行、单图完整结果预览 | 属于已提前覆盖的 V0.2 基础；补任意步骤结果预览、选中子集执行、失败步骤记录、项目/输出关联、原素材更新后一键重跑 |
 
-现有八类处理步骤：缩放、裁剪、画布、旋转翻转、透明裁剪、转换、重命名、AI 去背景。后续应优先复用 `scripts/extensions/canvas_moudles/image/modules/processing/processors/` 和 `scripts/src/renderer/VisualEditor.tsx`。
+现有八类处理步骤：缩放、裁剪、画布、旋转翻转、透明裁剪、转换、重命名、AI 去背景。后续应优先复用 `scripts/extensions/canvas_modules/image/modules/processing/processors/` 和 `scripts/src/renderer/VisualEditor.tsx`。
 
 ## 5. 其他模块与通用校验
 
